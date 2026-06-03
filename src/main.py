@@ -11,7 +11,7 @@ from core.screenshot import ScreenshotManager
 from core.region import RegionManager
 from core.ai_answer import AIAnswerManager
 from utils.hotkey import HotkeyManager
-from ui.ui import HotkeyDialog, OCRResultDialog
+from ui.ui import HotkeyDialog, OCRResultDialog, RegionDialog, SettingsDialog
 
 
 class ScreenshotApp:
@@ -20,7 +20,8 @@ class ScreenshotApp:
     def __init__(self, root):
         self.root = root
         self.root.title("截图答题工具")
-        self.root.geometry("500x600")
+        self.root.geometry("400x500")
+        self.root.resizable(False, False)  # 固定窗口大小
 
         # 设置窗口居中
         self.center_window()
@@ -42,8 +43,14 @@ class ScreenshotApp:
         )
         self.mouse_listener.start()
 
+        # 操作历史记录
+        self.operation_history = []
+
         # 创建界面组件
         self.create_widgets()
+
+        # 更新系统状态
+        self.update_system_status()
 
     def center_window(self):
         """将窗口居中显示"""
@@ -55,124 +62,109 @@ class ScreenshotApp:
         self.root.geometry(f'{width}x{height}+{x}+{y}')
 
     def create_widgets(self):
-        """创建界面组件"""
-        # 标题标签
+        """创建现代化卡片式界面组件"""
+        # 标题栏区域 - 包含应用名称和状态指示器
+        header_frame = ttk.Frame(self.root)
+        header_frame.pack(fill=tk.X, padx=10, pady=10)
+
         title_label = ttk.Label(
-            self.root,
-            text="截图答题工具",
-            font=('Arial', 14, 'bold')
+            header_frame,
+            text="📸 截图答题工具",
+            font=('Arial', 16, 'bold')
         )
-        title_label.pack(pady=15)
+        title_label.pack(side=tk.LEFT)
 
-        # 截图按钮
+        # 系统状态指示器
+        self.status_indicator = ttk.Label(
+            header_frame,
+            text="●",
+            font=('Arial', 12),
+            foreground='green'
+        )
+        self.status_indicator.pack(side=tk.RIGHT)
+
+        # 主要操作卡片
+        main_card = ttk.LabelFrame(self.root, text="核心操作", padding=15)
+        main_card.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+        # 大型截图按钮
         self.screenshot_button = ttk.Button(
-            self.root,
-            text="截取屏幕",
+            main_card,
+            text="📷 截图答题",
             command=self.take_screenshot,
-            width=15
+            width=25,
+            style='Accent.TButton'  # 使用强调样式
         )
-        self.screenshot_button.pack(pady=10)
+        self.screenshot_button.pack(pady=15)
 
-        # 设置按钮
-        self.settings_button = ttk.Button(
-            self.root,
-            text="快捷键设置",
-            command=self.open_settings,
-            width=15
-        )
-        self.settings_button.pack(pady=5)
+        # 快捷键和区域状态显示
+        info_frame = ttk.Frame(main_card)
+        info_frame.pack(fill=tk.X, pady=10)
 
-        # 当前快捷键显示
+        # 快捷键信息
         modifiers, key = self.config_manager.get_hotkey_config()
-        hotkey_text = f"当前快捷键: {modifiers.upper().replace('+', ' + ')} + {key.upper()}"
-
+        hotkey_text = f"⌨️  快捷键: {modifiers.upper().replace('+', ' + ')} + {key.upper()}"
         self.hotkey_label = ttk.Label(
-            self.root,
+            info_frame,
             text=hotkey_text,
-            font=('Arial', 9),
-            foreground='gray'
+            font=('Arial', 10),
+            foreground='#555'
         )
-        self.hotkey_label.pack(pady=10)
+        self.hotkey_label.pack(anchor=tk.W, pady=2)
 
-        # 状态标签
-        self.status_label = ttk.Label(
-            self.root,
-            text="点击按钮或按快捷键截图",
-            font=('Arial', 10)
-        )
-        self.status_label.pack(pady=5)
-
-        # 快捷键状态显示
-        self.hotkey_status_label = ttk.Label(
-            self.root,
-            text="快捷键测试: 按任意键查看检测状态",
-            font=('Arial', 9),
-            foreground='blue'
-        )
-        self.hotkey_status_label.pack(pady=2)
-
-        # 区域状态标签
+        # 区域状态信息
         self.region_label = ttk.Label(
-            self.root,
-            text="区域: 未设置",
+            info_frame,
+            text="📏 区域: 未设置",
+            font=('Arial', 10),
+            foreground='#d32f2f'
+        )
+        self.region_label.pack(anchor=tk.W, pady=2)
+
+        # 当前状态显示
+        self.status_label = ttk.Label(
+            main_card,
+            text="✅ 系统就绪，可以开始使用",
             font=('Arial', 9),
-            foreground='red'
+            foreground='#2e7d32'
         )
-        self.region_label.pack(pady=5)
+        self.status_label.pack(pady=10)
 
-        # 区域设置按钮
-        region_frame = ttk.Frame(self.root)
-        region_frame.pack(pady=5)
+        # 功能按钮组
+        button_frame = ttk.Frame(main_card)
+        button_frame.pack(fill=tk.X, pady=5)
 
         ttk.Button(
-            region_frame,
-            text="① 设置点1",
-            command=self.start_set_point1,
+            button_frame,
+            text="⚙️ 设置",
+            command=self.open_settings,
             width=12
-        ).pack(side=tk.LEFT, padx=2)
+        ).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(
-            region_frame,
-            text="② 设置点2",
-            command=self.start_set_point2,
+            button_frame,
+            text="🗺️ 区域",
+            command=self.open_region_settings,
             width=12
-        ).pack(side=tk.LEFT, padx=2)
-
-        # 清除区域按钮
-        self.clear_region_button = ttk.Button(
-            self.root,
-            text="清除区域",
-            command=self.clear_capture_region,
-            width=15
-        )
-        self.clear_region_button.pack(pady=5)
-
-        # 测试截图按钮
-        test_screenshot_frame = ttk.Frame(self.root)
-        test_screenshot_frame.pack(pady=5)
+        ).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(
-            test_screenshot_frame,
-            text="[测试] 区域截图",
-            command=self.test_region_screenshot,
-            width=20
-        ).pack()
+            button_frame,
+            text="📖 帮助",
+            command=self.show_help,
+            width=12
+        ).pack(side=tk.LEFT, padx=5)
 
-        # 使用说明
-        help_texts = [
-            "提示: 点击按钮后，移动鼠标到目标位置，点击鼠标左键确认",
-            "快捷键方式: ALT+CTRL+1/2 直接记录当前鼠标位置",
-            "ESC键: 取消设置模式"
-        ]
+        # 底部状态栏
+        status_bar = ttk.Frame(self.root)
+        status_bar.pack(fill=tk.X, padx=10, pady=10)
 
-        for help_text in help_texts:
-            help_label = ttk.Label(
-                self.root,
-                text=help_text,
-                font=('Arial', 8),
-                foreground='darkgray'
-            )
-            help_label.pack(pady=1)
+        ttk.Label(
+            status_bar,
+            text="💡 提示: 使用快捷键或点击按钮开始截图答题",
+            font=('Arial', 8),
+            foreground='#666'
+        ).pack(side=tk.LEFT)
 
     def setup_hotkey(self):
         """设置全局快捷键"""
@@ -244,7 +236,16 @@ class ScreenshotApp:
     def update_region_display(self):
         """更新区域显示"""
         region_info, color = self.region_manager.get_region_info()
-        self.region_label.config(text=f"区域: {region_info}", foreground=color)
+        # 更新区域标签，使用新的图标样式
+        if "未设置" in region_info:
+            self.region_label.config(text=f"📏 {region_info}", foreground='#d32f2f')
+        elif "部分设置" in region_info:
+            self.region_label.config(text=f"📏 {region_info}", foreground='#f9a825')
+        else:
+            self.region_label.config(text=f"📏 {region_info}", foreground='#2e7d32')
+
+        # 更新系统状态
+        self.update_system_status()
 
     def update_hotkey_status(self, text=None):
         """更新快捷键状态显示"""
@@ -347,12 +348,87 @@ class ScreenshotApp:
 
     def open_settings(self):
         """打开设置对话框"""
+        try:
+            from ui.ui import SettingsDialog
+            dialog = SettingsDialog(self.root, self.config_manager)
+            self.root.wait_window(dialog)
+            # 更新界面显示
+            self.update_display_after_settings()
+        except ImportError:
+            # 如果SettingsDialog还未实现，使用原来的快捷键设置
+            self.open_hotkey_settings()
+
+    def open_hotkey_settings(self):
+        """打开快捷键设置对话框（兼容方法）"""
         current_config = {
             'modifiers': self.hotkey_manager.hotkey_config['modifiers'],
             'key': self.hotkey_manager.hotkey_config['key']
         }
         dialog = HotkeyDialog(self.root, current_config, self.update_hotkey)
         self.root.wait_window(dialog)
+
+    def open_region_settings(self):
+        """打开区域设置对话框"""
+        try:
+            from ui.ui import RegionDialog
+            dialog = RegionDialog(self.root, self.region_manager, self.update_region_display)
+            self.root.wait_window(dialog)
+        except ImportError:
+            # 如果RegionDialog还未实现，显示提示
+            messagebox.showinfo("区域设置", "区域设置功能正在开发中，请使用快捷键：\nALT+CTRL+1 设置点1\nALT+CTRL+2 设置点2")
+
+    def show_help(self):
+        """显示帮助信息"""
+        help_text = """📸 截图答题工具使用指南
+
+🚀 快速开始：
+1. 点击"截图答题"按钮或使用快捷键
+2. 程序会自动截图并识别题目
+3. AI会直接给出答案
+
+⌨️ 快捷键：
+• ALT+SHIFT+Q：截图答题
+• ALT+CTRL+1：设置截图区域点1
+• ALT+CTRL+2：设置截图区域点2
+
+📋 功能说明：
+• 区域设置：固定答题区域，提高效率
+• 配置管理：自定义AI模型、参数等
+• 状态指示：绿色=正常，红色=需配置
+
+💡 提示：
+首次使用建议先配置区域，然后就可以一键答题了！"""
+        messagebox.showinfo("使用帮助", help_text)
+
+    def update_display_after_settings(self):
+        """设置后更新界面显示"""
+        # 更新快捷键显示
+        modifiers, key = self.config_manager.get_hotkey_config()
+        hotkey_text = f"⌨️  快捷键: {modifiers.upper().replace('+', ' + ')} + {key.upper()}"
+        self.hotkey_label.config(text=hotkey_text)
+
+        # 更新区域显示
+        self.update_region_display()
+
+        # 更新系统状态
+        self.update_system_status()
+
+    def update_system_status(self):
+        """更新系统状态指示器"""
+        # 检查系统状态
+        region_complete = self.region_manager.is_region_complete()
+        ai_available = self.ai_answer_manager.is_available()
+        ocr_available = self.ocr_manager.is_available()
+
+        if region_complete and ai_available and ocr_available:
+            self.status_indicator.config(text="●", foreground='green')
+            self.status_label.config(text="✅ 系统就绪，可以开始使用", foreground='#2e7d32')
+        elif ai_available and ocr_available:
+            self.status_indicator.config(text="●", foreground='#f9a825')  # 黄色
+            self.status_label.config(text="⚠️ 建议设置答题区域以获得更好体验", foreground='#f9a825')
+        else:
+            self.status_indicator.config(text="●", foreground='red')
+            self.status_label.config(text="❌ 请先配置API密钥", foreground='red')
 
     def update_hotkey(self, new_config):
         """更新快捷键配置"""
@@ -371,11 +447,8 @@ class ScreenshotApp:
         # 更新界面显示
         modifiers = new_config['modifiers'].upper().replace('+', ' + ')
         key = new_config['key'].upper()
-        hotkey_text = f"当前快捷键: {modifiers} + {key}"
+        hotkey_text = f"⌨️  快捷键: {modifiers} + {key}"
         self.hotkey_label.config(text=hotkey_text)
-
-        # 显示确认消息
-        messagebox.showinfo("设置成功", f"快捷键已更新为: {modifiers} + {key}")
 
     def cleanup(self):
         """清理资源"""

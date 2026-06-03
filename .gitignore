@@ -23,4 +23,3 @@ config/config.json
 # 操作系统
 .DS_Store
 Thumbs.db
-config/config.json
