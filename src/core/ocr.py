@@ -8,12 +8,13 @@ class OCRManager:
 
     def __init__(self):
         self.ocr = None
+        self._ocr_initialized = False
         # 设置OCR结果保存目录
         # 当前文件在src/core/ocr.py，需要回退两级到项目根目录
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.ocr_results_dir = os.path.join(project_root, 'outputs', 'ocr_results')
         os.makedirs(self.ocr_results_dir, exist_ok=True)
-        self.init_ocr()
+        # 延迟初始化，不在这里调用init_ocr()
 
     def init_ocr(self):
         """初始化OCR引擎"""
@@ -27,6 +28,13 @@ class OCRManager:
 
     def recognize_text(self, image_path):
         """识别图片中的文字"""
+        # 延迟初始化OCR，在第一次使用时才加载
+        if not self._ocr_initialized:
+            print("首次使用OCR，正在初始化...")
+            if not self.init_ocr():
+                return "[OCR初始化失败]"
+            self._ocr_initialized = True
+
         if self.ocr is None:
             print("OCR未初始化，无法识别")
             return None
@@ -105,4 +113,14 @@ class OCRManager:
 
     def is_available(self):
         """检查OCR是否可用"""
-        return self.ocr is not None
+        # 如果已经初始化，直接返回
+        if self.ocr is not None:
+            return True
+        # 如果未初始化，尝试快速初始化测试
+        try:
+            # 尝试初始化OCR来检查是否可用
+            if not self._ocr_initialized:
+                return self.init_ocr()
+            return True
+        except:
+            return False

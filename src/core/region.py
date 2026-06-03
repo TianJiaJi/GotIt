@@ -10,6 +10,48 @@ class RegionManager:
         self.mouse_controller = MouseController()
         self.setting_point_mode = None  # 'point1' 或 'point2'
 
+    @property
+    def point1(self):
+        """获取点1坐标"""
+        if self.capture_region and self.capture_region[0] is not None and self.capture_region[1] is not None:
+            return {'x': self.capture_region[0], 'y': self.capture_region[1]}
+        return None
+
+    @point1.setter
+    def point1(self, value):
+        """设置点1坐标"""
+        if value is None:
+            if self.capture_region:
+                self.capture_region[0] = None
+                self.capture_region[1] = None
+        else:
+            if self.capture_region is None:
+                self.capture_region = [value['x'], value['y'], None, None]
+            else:
+                self.capture_region[0] = value['x']
+                self.capture_region[1] = value['y']
+
+    @property
+    def point2(self):
+        """获取点2坐标"""
+        if self.capture_region and self.capture_region[2] is not None and self.capture_region[3] is not None:
+            return {'x': self.capture_region[2], 'y': self.capture_region[3]}
+        return None
+
+    @point2.setter
+    def point2(self, value):
+        """设置点2坐标"""
+        if value is None:
+            if self.capture_region:
+                self.capture_region[2] = None
+                self.capture_region[3] = None
+        else:
+            if self.capture_region is None:
+                self.capture_region = [None, None, value['x'], value['y']]
+            else:
+                self.capture_region[2] = value['x']
+                self.capture_region[3] = value['y']
+
     def get_mouse_position(self):
         """获取当前鼠标位置"""
         return self.mouse_controller.position

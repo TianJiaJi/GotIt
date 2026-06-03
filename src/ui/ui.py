@@ -584,6 +584,11 @@ class SettingsDialog(tk.Toplevel):
         notebook.add(ocr_frame, text="OCR设置")
         self.create_ocr_settings(ocr_frame)
 
+        # 通知配置标签页
+        notification_frame = ttk.Frame(notebook)
+        notebook.add(notification_frame, text="通知设置")
+        self.create_notification_settings(notification_frame)
+
         # 关于标签页
         about_frame = ttk.Frame(notebook)
         notebook.add(about_frame, text="关于")
@@ -726,6 +731,56 @@ class SettingsDialog(tk.Toplevel):
         ttk.Label(conf_frame, text="置信度阈值:").pack(side=tk.LEFT)
         self.conf_var = tk.StringVar(value=str(ocr_config.get('confidence_threshold', 0.5)))
         ttk.Entry(conf_frame, textvariable=self.conf_var, width=10).pack(side=tk.LEFT, padx=5)
+
+    def create_notification_settings(self, parent):
+        """创建通知配置页面"""
+        notification_frame = ttk.LabelFrame(parent, text="系统通知配置", padding=15)
+        notification_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # 说明文字
+        info_text = "Windows系统通知会在AI答题完成后自动弹出，显示答案内容。"
+        ttk.Label(
+            notification_frame,
+            text=info_text,
+            font=('Arial', 9),
+            foreground='gray'
+        ).pack(fill=tk.X, pady=10)
+
+        # 测试通知按钮
+        test_button_frame = ttk.Frame(notification_frame)
+        test_button_frame.pack(fill=tk.X, pady=15)
+
+        ttk.Button(
+            test_button_frame,
+            text="🔔 测试系统通知",
+            command=self.test_notification,
+            width=20
+        ).pack(side=tk.LEFT, padx=5)
+
+        # 状态说明
+        status_text = "注意: 系统通知功能需要在Windows 10/11上运行，并确保通知权限已开启。"
+        ttk.Label(
+            notification_frame,
+            text=status_text,
+            font=('Arial', 8),
+            foreground='#666'
+        ).pack(fill=tk.X, pady=5)
+
+    def test_notification(self):
+        """测试通知功能"""
+        try:
+            # 动态导入通知管理器
+            from core.notifier import WindowsNotifier
+            notifier = WindowsNotifier()
+
+            if notifier.is_available():
+                # 显示测试通知
+                notifier.test_notification()
+                messagebox.showinfo("测试成功", "系统通知测试完成！请查看右下角的通知弹窗。")
+            else:
+                messagebox.showwarning("功能不可用", "系统通知功能不可用。\n\n可能原因：\n1. 不是Windows系统\n2. 未安装Windows-Toasts库\n\n请运行: pip install Windows-Toasts")
+        except ImportError:
+            messagebox.showerror("错误", "通知模块未找到，请确保程序完整。")
 
     def create_about_tab(self, parent):
         """创建关于页面"""

@@ -3,3 +3,4 @@ pynput>=1.7.0
 rapidocr-onnxruntime>=1.2.0
 litellm>=1.40.0
 python-dotenv>=1.0.0
+Windows-Toasts>=1.1.0

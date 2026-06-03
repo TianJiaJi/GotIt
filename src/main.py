@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from pynput import keyboard, mouse
 import os
+import threading
 
 # 导入各个功能模块
 from config.config import ConfigManager
@@ -10,6 +11,7 @@ from core.ocr import OCRManager
 from core.screenshot import ScreenshotManager
 from core.region import RegionManager
 from core.ai_answer import AIAnswerManager
+from core.notifier import WindowsNotifier
 from utils.hotkey import HotkeyManager
 from ui.ui import HotkeyDialog, OCRResultDialog, RegionDialog, SettingsDialog
 
@@ -26,12 +28,22 @@ class ScreenshotApp:
         # 设置窗口居中
         self.center_window()
 
-        # 初始化各个功能模块
+        # 初始化轻量级配置管理器（需要先初始化，因为界面创建时需要使用）
         self.config_manager = ConfigManager()
-        self.ocr_manager = OCRManager()
+
+        # 先创建界面组件，让用户立即看到界面
+        self.create_widgets()
+
+        # 更新状态显示正在初始化
+        self.status_label.config(text="正在初始化系统组件...", foreground='orange')
+        self.root.update_idletasks()  # 使用update_idletasks()代替update()
+
+        # 初始化耗时组件（现在OCR已改为延迟初始化，不会阻塞）
         self.screenshot_manager = ScreenshotManager()
         self.region_manager = RegionManager()
+        self.ocr_manager = OCRManager()  # 现在不会立即加载模型
         self.ai_answer_manager = AIAnswerManager(self.config_manager)
+        self.notifier = WindowsNotifier()
 
         # 初始化快捷键管理器
         self.hotkey_manager = HotkeyManager()
@@ -46,11 +58,8 @@ class ScreenshotApp:
         # 操作历史记录
         self.operation_history = []
 
-        # 创建界面组件
-        self.create_widgets()
-
-        # 更新系统状态
-        self.update_system_status()
+        # 在后台更新系统状态，不阻塞界面显示
+        self.root.after(100, self.update_system_status)
 
     def center_window(self):
         """将窗口居中显示"""
@@ -189,7 +198,7 @@ class ScreenshotApp:
             self.status_label.config(text=f"[成功] {message}", foreground='green')
         else:
             self.status_label.config(text=f"[错误] {message}", foreground='red')
-        self.root.update()
+        # 移除update()调用，避免卡顿
 
     def on_mouse_click(self, x, y, button, pressed):
         """鼠标点击事件处理"""
@@ -207,7 +216,7 @@ class ScreenshotApp:
             self.status_label.config(text=f"[成功] {message}", foreground='green')
         else:
             self.status_label.config(text=f"[错误] {message}", foreground='red')
-        self.root.update()
+        # 移除update()调用，避免卡顿
 
     def start_set_point1(self):
         """开始设置第一个区域点"""
@@ -216,7 +225,7 @@ class ScreenshotApp:
         region_info, color = self.region_manager.get_region_info()
         self.region_label.config(text=f"等待设置点1... (移动鼠标+点击左键)", foreground='blue')
         print(f"进入{mode}，请移动鼠标到目标位置后点击鼠标左键")
-        self.root.update()
+        # 移除update()调用，避免卡顿
 
     def start_set_point2(self):
         """开始设置第二个区域点"""
@@ -225,7 +234,7 @@ class ScreenshotApp:
         region_info, color = self.region_manager.get_region_info()
         self.region_label.config(text=f"等待设置点2... (移动鼠标+点击左键)", foreground='blue')
         print(f"进入{mode}，请移动鼠标到目标位置后点击鼠标左键")
-        self.root.update()
+        # 移除update()调用，避免卡顿
 
     def clear_capture_region(self):
         """清除截图区域设置"""
@@ -274,7 +283,7 @@ class ScreenshotApp:
         try:
             # 更新状态
             self.status_label.config(text="正在截图...")
-            self.root.update()
+            self.root.update_idletasks()  # 使用update_idletasks()代替update()
 
             # 获取截图区域
             bbox = self.region_manager.get_bbox()
@@ -291,31 +300,16 @@ class ScreenshotApp:
                 text=f"[成功] 截图已保存，正在OCR识别...",
                 foreground='green'
             )
-            self.root.update()
+            self.root.update_idletasks()
             print(f"[成功] 截图已保存: {filepath}")
 
-            # 进行OCR识别
-            if self.ocr_manager.is_available():
-                ocr_text = self.ocr_manager.recognize_text(filepath)
-                if ocr_text:
-                    # 保存OCR结果
-                    txt_path = self.ocr_manager.save_result(ocr_text, filepath)
-
-                    # 调用AI进行答题
-                    self.status_label.config(
-                        text=f"[成功] OCR识别完成，正在AI答题...",
-                        foreground='blue'
-                    )
-                    self.root.update()
-
-                    ai_result = self.ai_answer_manager.get_answer(ocr_text)
-
-                    # 在界面上显示识别结果和AI答案
-                    self.show_ocr_result(ocr_text, filepath, txt_path, ai_result)
-                else:
-                    self.status_label.config(text="[成功] 截图完成，OCR未识别到文本", foreground='green')
-            else:
-                self.status_label.config(text="[成功] 截图完成，OCR不可用", foreground='orange')
+            # 在后台线程中执行OCR和AI处理，避免阻塞UI
+            ocr_thread = threading.Thread(
+                target=self._process_ocr_and_ai,
+                args=(filepath,),
+                daemon=True
+            )
+            ocr_thread.start()
 
         except Exception as e:
             self.status_label.config(
@@ -324,14 +318,62 @@ class ScreenshotApp:
             )
             print(f"[错误] 截图失败: {str(e)}")
 
+    def _process_ocr_and_ai(self, filepath):
+        """在后台线程中处理OCR识别和AI答题"""
+        try:
+            # 进行OCR识别
+            if self.ocr_manager.is_available():
+                ocr_text = self.ocr_manager.recognize_text(filepath)
+                if ocr_text:
+                    # 保存OCR结果
+                    txt_path = self.ocr_manager.save_result(ocr_text, filepath)
+
+                    # 更新UI状态（需要线程安全）
+                    self.root.after(0, lambda: self.status_label.config(
+                        text=f"[成功] OCR识别完成，正在AI答题...",
+                        foreground='blue'
+                    ))
+
+                    # 调用AI进行答题
+                    ai_result = self.ai_answer_manager.get_answer(ocr_text)
+
+                    # 在主线程中显示结果
+                    self.root.after(0, lambda: self.show_ocr_result(
+                        ocr_text, filepath, txt_path, ai_result
+                    ))
+                else:
+                    # OCR未识别到文本
+                    self.root.after(0, lambda: self.status_label.config(
+                        text="[成功] 截图完成，OCR未识别到文本",
+                        foreground='green'
+                    ))
+            else:
+                # OCR不可用
+                self.root.after(0, lambda: self.status_label.config(
+                    text="[成功] 截图完成，OCR不可用",
+                    foreground='orange'
+                ))
+
+        except Exception as e:
+            # 处理错误
+            error_msg = f"[错误] 处理失败: {str(e)}"
+            self.root.after(0, lambda: self.status_label.config(
+                text=error_msg,
+                foreground='red'
+            ))
+            print(f"[错误] 处理失败: {str(e)}")
+
     def show_ocr_result(self, ocr_text, image_path, txt_path=None, ai_result=None):
         """显示OCR识别结果"""
         try:
             dialog = OCRResultDialog(self.root, ocr_text, image_path, txt_path, ai_result)
-            # 更新状态
+
+            # 显示Windows系统通知
             if ai_result and ai_result.get('status') == 'success':
+                answer = ai_result.get('answer', '无答案')
+                self.notifier.show_answer_notification(answer, 'success')
                 self.status_label.config(
-                    text=f"[成功] AI答题完成: {ai_result.get('answer', '无答案')}",
+                    text=f"[成功] AI答题完成: {answer}",
                     foreground='green'
                 )
             else:
@@ -339,6 +381,10 @@ class ScreenshotApp:
                     text=f"[成功] OCR识别完成",
                     foreground='green'
                 )
+                # 如果有OCR结果，显示OCR通知
+                if ocr_text:
+                    self.notifier.show_ocr_notification(ocr_text)
+
         except Exception as e:
             print(f"显示OCR结果失败: {e}")
             self.status_label.config(
@@ -415,15 +461,16 @@ class ScreenshotApp:
 
     def update_system_status(self):
         """更新系统状态指示器"""
-        # 检查系统状态
+        # 检查系统状态（不触发OCR初始化，避免卡顿）
         region_complete = self.region_manager.is_region_complete()
         ai_available = self.ai_answer_manager.is_available()
-        ocr_available = self.ocr_manager.is_available()
+        # 不检查OCR可用性，避免触发初始化导致卡顿
+        # OCR会在首次使用时初始化
 
-        if region_complete and ai_available and ocr_available:
+        if region_complete and ai_available:
             self.status_indicator.config(text="●", foreground='green')
             self.status_label.config(text="✅ 系统就绪，可以开始使用", foreground='#2e7d32')
-        elif ai_available and ocr_available:
+        elif ai_available:
             self.status_indicator.config(text="●", foreground='#f9a825')  # 黄色
             self.status_label.config(text="⚠️ 建议设置答题区域以获得更好体验", foreground='#f9a825')
         else:
