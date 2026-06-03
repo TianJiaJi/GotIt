@@ -5,12 +5,12 @@ from pynput import keyboard, mouse
 import os
 
 # 导入各个功能模块
-from config import ConfigManager
-from ocr import OCRManager
-from screenshot import ScreenshotManager
-from region import RegionManager
-from hotkey import HotkeyManager
-from ui import HotkeyDialog, OCRResultDialog
+from config.config import ConfigManager
+from core.ocr import OCRManager
+from core.screenshot import ScreenshotManager
+from core.region import RegionManager
+from utils.hotkey import HotkeyManager
+from ui.ui import HotkeyDialog, OCRResultDialog
 
 
 class ScreenshotApp:

@@ -1,4 +1,25 @@
+# Python缓存
 __pycache__/*
-.claude/*
-screenshot_*.png
-config.ini
+*.pyc
+*.pyo
+
+# Claude Code
+.claude/
+
+# 输出文件
+outputs/screenshots/*.png
+outputs/ocr_results/*.txt
+
+# 配置文件
+config/config.ini
+
+# 虚拟环境
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# 操作系统
+.DS_Store
+Thumbs.db

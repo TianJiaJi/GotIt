@@ -9,8 +9,13 @@ class ScreenshotManager:
 
     def __init__(self, project_root=None):
         if project_root is None:
-            project_root = os.path.dirname(os.path.abspath(__file__))
+            # 获取项目根目录（src目录的父目录）
+            # 当前文件在src/core/screenshot.py，需要回退两级到项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.project_root = project_root
+        # 设置截图保存目录
+        self.screenshot_dir = os.path.join(project_root, 'outputs', 'screenshots')
+        os.makedirs(self.screenshot_dir, exist_ok=True)
 
     def take_screenshot(self, bbox=None):
         """截取屏幕
@@ -37,8 +42,8 @@ class ScreenshotManager:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"screenshot_{timestamp}.png"
 
-            # 保存到项目根目录
-            filepath = os.path.join(self.project_root, filename)
+            # 保存到screenshots目录
+            filepath = os.path.join(self.screenshot_dir, filename)
             screenshot.save(filepath)
 
             print(f"[成功] 截图已保存: {filepath}")
@@ -52,7 +57,7 @@ class ScreenshotManager:
     def save_screenshot(self, screenshot, filename):
         """保存截图到指定文件"""
         try:
-            filepath = os.path.join(self.project_root, filename)
+            filepath = os.path.join(self.screenshot_dir, filename)
             screenshot.save(filepath)
             print(f"[成功] 截图已保存: {filepath}")
             return True, filepath

@@ -8,6 +8,11 @@ class OCRManager:
 
     def __init__(self):
         self.ocr = None
+        # 设置OCR结果保存目录
+        # 当前文件在src/core/ocr.py，需要回退两级到项目根目录
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.ocr_results_dir = os.path.join(project_root, 'outputs', 'ocr_results')
+        os.makedirs(self.ocr_results_dir, exist_ok=True)
         self.init_ocr()
 
     def init_ocr(self):
@@ -86,8 +91,10 @@ class OCRManager:
     def save_result(self, text, screenshot_path):
         """保存OCR识别结果到文本文件"""
         try:
-            # 生成对应的文本文件名
-            txt_path = screenshot_path.replace('.png', '.txt')
+            # 从截图路径提取文件名
+            filename = os.path.basename(screenshot_path).replace('.png', '.txt')
+            # 保存到OCR结果目录
+            txt_path = os.path.join(self.ocr_results_dir, filename)
             with open(txt_path, 'w', encoding='utf-8') as f:
                 f.write(text)
             print(f"OCR结果已保存到: {txt_path}")

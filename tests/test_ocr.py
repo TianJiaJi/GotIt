@@ -6,19 +6,21 @@ import os
 print("初始化OCR...")
 ocr = RapidOCR()
 
-# 测试图片路径（使用最近生成的截图）
-test_images = [f for f in os.listdir('.') if f.endswith('.png')]
+# 测试图片路径（使用项目根目录下的截图）
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+test_images = [f for f in os.listdir(project_root) if f.endswith('.png')]
 
 if not test_images:
     print("没有找到测试图片，请先截图")
 else:
     # 使用最新的截图
     test_image = test_images[-1]
+    test_image_path = os.path.join(project_root, test_image)
     print(f"测试图片: {test_image}")
 
     # 进行OCR识别
     print("\n开始OCR识别...")
-    result = ocr(test_image)
+    result = ocr(test_image_path)
 
     print(f"\n=== OCR结果调试 ===")
     print(f"结果类型: {type(result)}")

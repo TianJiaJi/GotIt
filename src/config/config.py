@@ -7,10 +7,9 @@ class ConfigManager:
     """配置管理器"""
 
     def __init__(self):
-        self.config_file = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            'config.ini'
-        )
+        # 配置文件在项目根目录的config文件夹下
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.config_file = os.path.join(project_root, 'config', 'config.ini')
         self.default_config = {
             'hotkey': {
                 'modifiers': 'alt+shift',
