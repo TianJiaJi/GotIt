@@ -1,5 +1,4 @@
 """配置管理模块"""
-import os
 import json
 from pathlib import Path
 
@@ -11,7 +10,6 @@ class ConfigManager:
         # 配置文件在项目根目录的config文件夹下
         project_root = Path(__file__).parent.parent.parent
         self.config_file = project_root / 'config' / 'config.json'
-        self.env_file = project_root / '.env'
 
         self.default_config = {
             "app": {
@@ -24,6 +22,8 @@ class ConfigManager:
             },
             "ai": {
                 "model": "deepseek/deepseek-chat",
+                "api_key": "",
+                "api_base": "https://api.deepseek.com",
                 "temperature": 0.3,
                 "max_tokens": 200
             },
@@ -33,9 +33,7 @@ class ConfigManager:
             }
         }
         self.config = {}
-        self.env_vars = {}
         self.load_config()
-        self.load_env_vars()
 
     def load_config(self):
         """加载JSON配置文件"""
@@ -50,22 +48,6 @@ class ConfigManager:
         else:
             self.config = self.default_config.copy()
             self.save_config()
-
-    def load_env_vars(self):
-        """加载环境变量"""
-        try:
-            from dotenv import load_dotenv
-            if self.env_file.exists():
-                load_dotenv(self.env_file)
-        except ImportError:
-            pass
-
-        # 读取环境变量
-        self.env_vars = {
-            'LITELLM_MODEL': os.getenv('LITELLM_MODEL', ''),
-            'LITELLM_API_KEY': os.getenv('LITELLM_API_KEY', ''),
-            'LITELLM_API_BASE': os.getenv('LITELLM_API_BASE', '')
-        }
 
     def save_config(self):
         """保存配置文件"""
@@ -89,12 +71,24 @@ class ConfigManager:
         """获取AI配置"""
         ai_config = self.config.get('ai', {})
         return {
-            'model': self.env_vars.get('LITELLM_MODEL') or ai_config.get('model', 'deepseek/deepseek-chat'),
-            'api_key': self.env_vars.get('LITELLM_API_KEY', ''),
-            'api_base': self.env_vars.get('LITELLM_API_BASE', 'https://api.deepseek.com'),
+            'model': ai_config.get('model', 'deepseek/deepseek-chat'),
+            'api_key': ai_config.get('api_key', ''),
+            'api_base': ai_config.get('api_base', 'https://api.deepseek.com'),
             'temperature': ai_config.get('temperature', 0.3),
             'max_tokens': ai_config.get('max_tokens', 200)
         }
+
+    def update_ai_config(self, model=None, api_key=None, api_base=None):
+        """更新AI配置"""
+        if 'ai' not in self.config:
+            self.config['ai'] = {}
+        if model:
+            self.config['ai']['model'] = model
+        if api_key:
+            self.config['ai']['api_key'] = api_key
+        if api_base:
+            self.config['ai']['api_base'] = api_base
+        self.save_config()
 
     def get_ocr_config(self):
         """获取OCR配置"""

@@ -32,9 +32,9 @@ GotIt/
 │   ├── screenshots/      # 截图文件
 │   └── ocr_results/      # OCR结果
 ├── config/                # 配置目录
-│   └── config.ini         # 配置文件
-├── docs/                  # 文档目录
-│   └── README.md          # 详细文档
+│   ├── config.json        # 配置文件（本地，含API密钥）
+│   └── config.example.json  # 配置示例
+├── CONFIG.md             # 配置说明文档
 ├── gotit.py              # 主入口文件
 ├── requirements.txt       # 依赖列表
 └── README.md             # 项目说明
@@ -46,40 +46,32 @@ GotIt/
 pip install -r requirements.txt
 ```
 
-### AI答题配置（可选）
+## 配置说明
 
-如需使用AI答题功能，请配置LiteLLM环境变量：
+### 快速配置
 
-1. 复制环境变量示例文件：
+1. 复制配置示例：
    ```bash
-   cp .env.example .env
+   cp config/config.example.json config/config.json
    ```
 
-2. 编辑 `.env` 文件，填入你的API配置：
-   ```env
-   LITELLM_MODEL=gpt-3.5-turbo
-   LITELLM_API_KEY=your_api_key_here
+2. 编辑 `config/config.json`，填入你的API密钥：
+   ```json
+   {
+     "ai": {
+       "api_key": "your-api-key-here"
+     }
+   }
    ```
 
-3. 支持的模型包括：
-   - **DeepSeek**: `deepseek/deepseek-chat` (推荐，性价比高)
-   - OpenAI: `gpt-3.5-turbo`, `gpt-4`, `gpt-4o`
-   - Anthropic Claude: `claude-3-haiku`, `claude-3-sonnet`, `claude-3-opus`
-   - 其他LiteLLM支持的模型
+详细配置说明请查看 [CONFIG.md](CONFIG.md)
 
-### 快速安装（Windows）
+### 支持的AI模型
 
-运行安装脚本自动安装依赖和测试配置：
-```bash
-install.bat
-```
-
-### 测试DeepSeek配置
-
-运行测试脚本验证API配置是否正确：
-```bash
-python test_deepseek.py
-```
+- **DeepSeek**: `deepseek/deepseek-chat` (推荐，性价比高)
+- OpenAI: `gpt-3.5-turbo`, `gpt-4`, `gpt-4o`
+- Anthropic Claude: `claude-3-haiku`, `claude-3-sonnet`, `claude-3-opus`
+- 其他LiteLLM支持的模型
 
 ## 使用方法
 
@@ -104,13 +96,13 @@ python gotit.py
 
 ## 配置说明
 
-配置文件位于 `config/config.ini`，可以修改快捷键设置：
+所有配置统一在 `config/config.json` 中管理，包括：
+- 应用设置
+- 快捷键配置
+- AI模型配置
+- OCR参数设置
 
-```ini
-[hotkey]
-modifiers = alt+shift
-key = s
-```
+详细配置说明请查看 [CONFIG.md](CONFIG.md)
 
 ## 技术栈
 
@@ -137,11 +129,11 @@ python -m pytest tests/
 
 ## 注意事项
 
-1. 首次运行会自动创建配置文件
-2. 截图文件保存在`outputs/screenshots`目录
-3. OCR识别结果保存在`outputs/ocr_results`目录
-4. 支持中文和英文混合识别
-5. AI答题功能需要配置有效的API密钥
+1. ⚠️ **重要**: `config/config.json` 包含API密钥，已在 `.gitignore` 中忽略，请勿分享或提交
+2. 首次运行请先复制 `config.example.json` 为 `config.json` 并配置API密钥
+3. 截图文件保存在`outputs/screenshots`目录
+4. OCR识别结果保存在`outputs/ocr_results`目录
+5. 支持中文和英文混合识别
 6. AI答题遵循严格的JSON格式输出，直接显示答案
 
 ## 许可证
