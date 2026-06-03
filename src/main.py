@@ -9,6 +9,7 @@ from config.config import ConfigManager
 from core.ocr import OCRManager
 from core.screenshot import ScreenshotManager
 from core.region import RegionManager
+from core.ai_answer import AIAnswerManager
 from utils.hotkey import HotkeyManager
 from ui.ui import HotkeyDialog, OCRResultDialog
 
@@ -29,6 +30,7 @@ class ScreenshotApp:
         self.ocr_manager = OCRManager()
         self.screenshot_manager = ScreenshotManager()
         self.region_manager = RegionManager()
+        self.ai_answer_manager = AIAnswerManager(self.config_manager)
 
         # 初始化快捷键管理器
         self.hotkey_manager = HotkeyManager()
@@ -297,8 +299,18 @@ class ScreenshotApp:
                 if ocr_text:
                     # 保存OCR结果
                     txt_path = self.ocr_manager.save_result(ocr_text, filepath)
-                    # 在界面上显示识别结果
-                    self.show_ocr_result(ocr_text, filepath, txt_path)
+
+                    # 调用AI进行答题
+                    self.status_label.config(
+                        text=f"[成功] OCR识别完成，正在AI答题...",
+                        foreground='blue'
+                    )
+                    self.root.update()
+
+                    ai_result = self.ai_answer_manager.get_answer(ocr_text)
+
+                    # 在界面上显示识别结果和AI答案
+                    self.show_ocr_result(ocr_text, filepath, txt_path, ai_result)
                 else:
                     self.status_label.config(text="[成功] 截图完成，OCR未识别到文本", foreground='green')
             else:
@@ -311,15 +323,21 @@ class ScreenshotApp:
             )
             print(f"[错误] 截图失败: {str(e)}")
 
-    def show_ocr_result(self, ocr_text, image_path, txt_path=None):
+    def show_ocr_result(self, ocr_text, image_path, txt_path=None, ai_result=None):
         """显示OCR识别结果"""
         try:
-            dialog = OCRResultDialog(self.root, ocr_text, image_path, txt_path)
+            dialog = OCRResultDialog(self.root, ocr_text, image_path, txt_path, ai_result)
             # 更新状态
-            self.status_label.config(
-                text=f"[成功] OCR识别完成",
-                foreground='green'
-            )
+            if ai_result and ai_result.get('status') == 'success':
+                self.status_label.config(
+                    text=f"[成功] AI答题完成: {ai_result.get('answer', '无答案')}",
+                    foreground='green'
+                )
+            else:
+                self.status_label.config(
+                    text=f"[成功] OCR识别完成",
+                    foreground='green'
+                )
         except Exception as e:
             print(f"显示OCR结果失败: {e}")
             self.status_label.config(

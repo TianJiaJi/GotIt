@@ -1,12 +1,13 @@
 # 截图答题工具
 
-智能截图OCR识别工具，支持区域截图和文字识别功能。
+智能截图OCR识别工具，支持区域截图、文字识别和AI答题功能。
 
 ## 功能特性
 
 - 🔥 **区域截图**: 支持设置固定区域进行快速截图
 - 🔑 **快捷键操作**: 全局快捷键支持，方便快捷
 - 📝 **OCR识别**: 基于RapidOCR的高精度文字识别
+- 🤖 **AI答题**: 集成LiteLLM调用大模型进行智能答题
 - 🎯 **模块化设计**: 清晰的代码结构，易于维护
 
 ## 目录结构
@@ -45,6 +46,41 @@ GotIt/
 pip install -r requirements.txt
 ```
 
+### AI答题配置（可选）
+
+如需使用AI答题功能，请配置LiteLLM环境变量：
+
+1. 复制环境变量示例文件：
+   ```bash
+   cp .env.example .env
+   ```
+
+2. 编辑 `.env` 文件，填入你的API配置：
+   ```env
+   LITELLM_MODEL=gpt-3.5-turbo
+   LITELLM_API_KEY=your_api_key_here
+   ```
+
+3. 支持的模型包括：
+   - **DeepSeek**: `deepseek/deepseek-chat` (推荐，性价比高)
+   - OpenAI: `gpt-3.5-turbo`, `gpt-4`, `gpt-4o`
+   - Anthropic Claude: `claude-3-haiku`, `claude-3-sonnet`, `claude-3-opus`
+   - 其他LiteLLM支持的模型
+
+### 快速安装（Windows）
+
+运行安装脚本自动安装依赖和测试配置：
+```bash
+install.bat
+```
+
+### 测试DeepSeek配置
+
+运行测试脚本验证API配置是否正确：
+```bash
+python test_deepseek.py
+```
+
 ## 使用方法
 
 ### 启动程序
@@ -79,7 +115,8 @@ key = s
 ## 技术栈
 
 - **界面**: Tkinter
-- **OCR**: RapidOCR + onnxruntime  
+- **OCR**: RapidOCR + onnxruntime
+- **AI答题**: LiteLLM + 大语言模型
 - **快捷键**: pynput
 - **图像处理**: Pillow
 
@@ -104,6 +141,8 @@ python -m pytest tests/
 2. 截图文件保存在`outputs/screenshots`目录
 3. OCR识别结果保存在`outputs/ocr_results`目录
 4. 支持中文和英文混合识别
+5. AI答题功能需要配置有效的API密钥
+6. AI答题遵循严格的JSON格式输出，直接显示答案
 
 ## 许可证
 

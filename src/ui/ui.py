@@ -137,12 +137,13 @@ class HotkeyDialog(tk.Toplevel):
 class OCRResultDialog(tk.Toplevel):
     """OCR结果显示对话框"""
 
-    def __init__(self, parent, ocr_text, image_path, txt_path=None):
+    def __init__(self, parent, ocr_text, image_path, txt_path=None, ai_result=None):
         super().__init__(parent)
         self.title("OCR识别结果")
-        self.geometry("600x500")
+        self.geometry("600x700")
         self.make_modal()
         self.center_window()
+        self.ai_result = ai_result
 
         # 创建界面
         self.create_widgets(ocr_text, image_path, txt_path)
@@ -170,6 +171,50 @@ class OCRResultDialog(tk.Toplevel):
             font=('Arial', 12, 'bold')
         )
         title_label.pack(pady=10)
+
+        # AI答案显示区域
+        if self.ai_result:
+            ai_frame = ttk.LabelFrame(self, text="AI 答案", padding=10)
+            ai_frame.pack(pady=10, fill=tk.X, padx=10)
+
+            answer_text = self.ai_result.get('answer', '无答案')
+            status = self.ai_result.get('status', 'unknown')
+
+            # 根据状态设置颜色
+            if status == 'success':
+                answer_color = 'green'
+                status_text = "✓ 成功"
+            elif status == 'error':
+                answer_color = 'red'
+                status_text = "✗ 错误"
+            else:
+                answer_color = 'gray'
+                status_text = "未知状态"
+
+            # 状态和答案
+            ai_info_frame = ttk.Frame(ai_frame)
+            ai_info_frame.pack(fill=tk.X)
+
+            ttk.Label(
+                ai_info_frame,
+                text=f"状态: {status_text}",
+                font=('Arial', 9, 'bold')
+            ).pack(side=tk.LEFT, padx=5)
+
+            ttk.Label(
+                ai_info_frame,
+                text=f"答案: {answer_text}",
+                font=('Arial', 11, 'bold'),
+                foreground=answer_color
+            ).pack(side=tk.LEFT, padx=5)
+
+            # 复制答案按钮
+            ttk.Button(
+                ai_info_frame,
+                text="复制答案",
+                command=lambda: self.copy_to_clipboard(answer_text),
+                width=10
+            ).pack(side=tk.RIGHT, padx=5)
 
         # 图片路径
         path_frame = ttk.Frame(self)
@@ -210,13 +255,23 @@ class OCRResultDialog(tk.Toplevel):
         button_frame = ttk.Frame(self)
         button_frame.pack(pady=10)
 
-        # 复制按钮
+        # 复制OCR文本按钮
         ttk.Button(
             button_frame,
-            text="复制文本",
+            text="复制OCR文本",
             command=lambda: self.copy_to_clipboard(ocr_text),
             width=12
         ).pack(side=tk.LEFT, padx=5)
+
+        # 复制答案按钮（如果有AI结果）
+        if self.ai_result and self.ai_result.get('answer'):
+            answer_text = self.ai_result.get('answer')
+            ttk.Button(
+                button_frame,
+                text="复制答案",
+                command=lambda: self.copy_to_clipboard(answer_text),
+                width=12
+            ).pack(side=tk.LEFT, padx=5)
 
         # 关闭按钮
         ttk.Button(
