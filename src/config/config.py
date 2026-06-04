@@ -97,6 +97,19 @@ class ConfigManager:
             'confidence_threshold': 0.5
         })
 
+    def update_ocr_config(self, language=None, confidence_threshold=None):
+        """更新OCR配置"""
+        if 'ocr' not in self.config:
+            self.config['ocr'] = {}
+
+        if language is not None:
+            self.config['ocr']['language'] = language
+
+        if confidence_threshold is not None:
+            self.config['ocr']['confidence_threshold'] = confidence_threshold
+
+        self.save_config()
+
     def get_app_info(self):
         """获取应用信息"""
         return self.config.get('app', {
