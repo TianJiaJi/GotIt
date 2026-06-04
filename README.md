@@ -5,9 +5,11 @@
 ## 功能特性
 
 - 🔥 **区域截图**: 支持设置固定区域进行快速截图
-- 🔑 **快捷键操作**: 全局快捷键支持，方便快捷
+- 🔑 **快捷键操作**: 全局快捷键支持，无需切换窗口
 - 📝 **OCR识别**: 基于RapidOCR的高精度文字识别
 - 🤖 **AI答题**: 集成LiteLLM调用大模型进行智能答题
+- 🔔 **系统通知**: Windows系统通知实时显示答案
+- 🎨 **现代化界面**: 扁平化设计，操作简单直观
 - 🎯 **模块化设计**: 清晰的代码结构，易于维护
 
 ## 目录结构
@@ -21,9 +23,12 @@ GotIt/
 │   ├── core/              # 核心功能模块
 │   │   ├── ocr.py         # OCR识别
 │   │   ├── screenshot.py  # 截图功能
-│   │   └── region.py      # 区域管理
+│   │   ├── region.py      # 区域管理
+│   │   ├── ai_answer.py   # AI答题
+│   │   └── notifier.py    # 系统通知
 │   ├── ui/                # 用户界面模块
-│   │   └── ui.py          # 界面组件
+│   │   ├── ui.py          # 传统UI组件
+│   │   └── modern_ui.py   # 现代化UI组件
 │   └── utils/             # 工具模块
 │       └── hotkey.py      # 快捷键处理
 ├── tests/                 # 测试目录
@@ -34,10 +39,12 @@ GotIt/
 ├── config/                # 配置目录
 │   ├── config.json        # 配置文件（本地，含API密钥）
 │   └── config.example.json  # 配置示例
-├── CONFIG.md             # 配置说明文档
+├── README.md              # 项目说明和快速开始
+├── FEATURES.md            # 完整功能文档
+├── CONFIG.md              # 配置说明文档
 ├── gotit.py              # 主入口文件
 ├── requirements.txt       # 依赖列表
-└── README.md             # 项目说明
+└── LICENSE               # 许可证
 ```
 
 ## 安装依赖
@@ -83,9 +90,10 @@ python gotit.py
 
 ### 快捷键
 
+- `ALT + SHIFT + Q`: 执行截图答题（默认，可配置）
 - `ALT + CTRL + 1`: 设置截图区域第一个点
-- `ALT + CTRL + 2`: 设置截图区域第二个点  
-- `ALT + SHIFT + S`: 截图并OCR识别
+- `ALT + CTRL + 2`: 设置截图区域第二个点
+- `ESC`: 取消设置模式
 
 ### 界面操作
 
@@ -127,6 +135,12 @@ python -m pytest tests/
 - `src/ui/`: 用户界面组件
 - `src/utils/`: 工具函数
 
+## 文档结构
+
+- **README.md**: 项目概述和快速开始指南
+- **FEATURES.md**: 完整功能文档，包含详细的UI布局、功能模块说明
+- **CONFIG.md**: 配置说明文档，包含所有配置项说明
+
 ## 注意事项
 
 1. ⚠️ **重要**: `config/config.json` 包含API密钥，已在 `.gitignore` 中忽略，请勿分享或提交
@@ -138,4 +152,4 @@ python -m pytest tests/
 
 ## 许可证
 
-MIT License
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
