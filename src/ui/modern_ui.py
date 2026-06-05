@@ -848,6 +848,11 @@ class ModernSettingsDialog(tk.Toplevel):
         notebook.add(notification_frame, text="通知设置")
         self._create_notification_settings(notification_frame)
 
+        # 显示配置标签页
+        display_frame = tk.Frame(notebook, bg=ModernTheme.BACKGROUND)
+        notebook.add(display_frame, text="显示设置")
+        self._create_display_settings(display_frame)
+
         # 关于标签页
         about_frame = tk.Frame(notebook, bg=ModernTheme.BACKGROUND)
         notebook.add(about_frame, text="关于")
@@ -1102,6 +1107,63 @@ class ModernSettingsDialog(tk.Toplevel):
         except ImportError:
             messagebox.showerror("错误", "通知模块未找到，请确保程序完整。")
 
+    def _create_display_settings(self, parent):
+        """创建显示配置页面"""
+        container = tk.Frame(parent, bg=ModernTheme.BACKGROUND)
+        container.pack(fill=tk.BOTH, expand=True, padx=ModernTheme.PADDING_MEDIUM,
+                      pady=ModernTheme.PADDING_MEDIUM)
+
+        display_config = self.config_manager.get_display_config()
+
+        # 显示配置卡片
+        display_card = ModernCard(container, title="🖥️ 结果弹窗设置",
+                                  padding=ModernTheme.PADDING_MEDIUM)
+        display_card.pack(fill=tk.BOTH, expand=True, pady=(0, ModernTheme.PADDING_MEDIUM))
+
+        # 说明文字
+        info_text = "控制答题完成后是否弹出包含OCR识别结果和AI答案的详细弹窗。"
+        tk.Label(
+            display_card.content_frame,
+            text=info_text,
+            font=('Arial', ModernTheme.FONT_SIZE_BODY),
+            bg=ModernTheme.SURFACE,
+            fg=ModernTheme.TEXT_SECONDARY
+        ).pack(fill=tk.X, pady=ModernTheme.PADDING_MEDIUM)
+
+        # 结果对话框开关
+        result_dialog_frame = tk.Frame(display_card.content_frame, bg=ModernTheme.SURFACE)
+        result_dialog_frame.pack(fill=tk.X, pady=ModernTheme.PADDING_SMALL)
+
+        self.show_result_dialog_var = tk.BooleanVar(value=display_config.get('show_result_popup', True))
+
+        tk.Label(
+            result_dialog_frame,
+            text="显示结果弹窗:",
+            font=('Arial', ModernTheme.FONT_SIZE_BODY),
+            bg=ModernTheme.SURFACE,
+            fg=ModernTheme.TEXT_PRIMARY
+        ).pack(side=tk.LEFT)
+
+        # 使用标准Checkbutton作为开关
+        checkbutton = ttk.Checkbutton(
+            result_dialog_frame,
+            text="开启",
+            variable=self.show_result_dialog_var,
+            onvalue=True,
+            offvalue=False
+        )
+        checkbutton.pack(side=tk.LEFT, padx=ModernTheme.PADDING_MEDIUM)
+
+        # 状态说明
+        status_text = "注意: 关闭弹窗后，答题结果仍会通过系统通知显示。"
+        tk.Label(
+            display_card.content_frame,
+            text=status_text,
+            font=('Arial', ModernTheme.FONT_SIZE_CAPTION),
+            bg=ModernTheme.SURFACE,
+            fg=ModernTheme.TEXT_HINT
+        ).pack(fill=tk.X, pady=ModernTheme.PADDING_SMALL)
+
     def _create_about_tab(self, parent):
         """创建关于页面"""
         container = tk.Frame(parent, bg=ModernTheme.BACKGROUND)
@@ -1163,6 +1225,12 @@ class ModernSettingsDialog(tk.Toplevel):
                 except ValueError:
                     messagebox.showerror("错误", "OCR置信度必须是数字")
                     return
+
+            # 保存显示配置
+            if hasattr(self, 'show_result_dialog_var'):
+                self.config_manager.update_display_config(
+                    show_result_popup=self.show_result_dialog_var.get()
+                )
 
             messagebox.showinfo("成功", "配置已保存")
             self.destroy()
@@ -1563,8 +1631,9 @@ class ModernMainWindow:
     def show_ocr_result(self, ocr_text, image_path, txt_path=None, ai_result=None):
         """显示OCR结果"""
         try:
-            from ui.modern_ui import ModernResultDialog
-            dialog = ModernResultDialog(self.root, ocr_text, image_path, ai_result)
+            # 检查是否显示结果弹窗
+            display_config = self.config_manager.get_display_config()
+            show_popup = display_config.get('show_result_popup', True)
 
             # 显示系统通知
             if ai_result and ai_result.get('status') == 'success':
@@ -1579,6 +1648,11 @@ class ModernMainWindow:
                     text="[成功] OCR识别完成",
                     fg=ModernTheme.SUCCESS
                 )
+
+            # 根据设置决定是否显示结果弹窗
+            if show_popup:
+                from ui.modern_ui import ModernResultDialog
+                dialog = ModernResultDialog(self.root, ocr_text, image_path, ai_result)
 
         except Exception as e:
             print(f"显示结果失败: {e}")

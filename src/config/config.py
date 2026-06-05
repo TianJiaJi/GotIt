@@ -30,6 +30,9 @@ class ConfigManager:
             "ocr": {
                 "language": "auto",
                 "confidence_threshold": 0.5
+            },
+            "display": {
+                "show_result_popup": True
             }
         }
         self.config = {}
@@ -116,3 +119,19 @@ class ConfigManager:
             'name': '截图答题工具',
             'version': '1.0.0'
         })
+
+    def get_display_config(self):
+        """获取显示配置"""
+        return self.config.get('display', {
+            'show_result_popup': True
+        })
+
+    def update_display_config(self, show_result_popup=None):
+        """更新显示配置"""
+        if 'display' not in self.config:
+            self.config['display'] = {}
+
+        if show_result_popup is not None:
+            self.config['display']['show_result_popup'] = show_result_popup
+
+        self.save_config()
