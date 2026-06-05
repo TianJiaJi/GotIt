@@ -17,5 +17,8 @@
   "ocr": {
     "language": "auto",
     "confidence_threshold": 0.5
+  },
+  "display": {
+    "show_result_popup": true
   }
 }

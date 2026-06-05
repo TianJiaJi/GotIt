@@ -56,6 +56,11 @@ python gotit.py
 - `language`: 语言设置 (auto, zh, en等)
 - `confidence_threshold`: 置信度阈值 (0.1-1.0)
 
+### 显示配置 (`display`)
+- `show_result_popup`: 是否显示结果弹窗 (true/false)
+  - `true`: 显示详细结果对话框（包含OCR识别结果和AI答案）
+  - `false`: 仅通过系统通知显示答案，不弹出详细结果
+
 ## 安全提醒
 
 ⚠️ **重要**: `config/config.json` 包含敏感信息，请勿分享或提交到Git！
