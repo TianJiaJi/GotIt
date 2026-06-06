@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 import os
+import threading
 from pynput import mouse
 
 
@@ -1259,6 +1260,7 @@ class ModernMainWindow:
         self.ai_answer_manager = None
         self.hotkey_manager = None
         self.notifier = None
+        self.clipboard_chat_manager = None
 
         # 创建界面
         self._setup_window()
@@ -1440,6 +1442,7 @@ class ModernMainWindow:
             from core.region import RegionManager
             from core.ai_answer import AIAnswerManager
             from core.notifier import WindowsNotifier
+            from core.clipboard_chat import ClipboardChatManager
             from utils.hotkey import HotkeyManager
 
             # 初始化组件
@@ -1450,6 +1453,7 @@ class ModernMainWindow:
             self.ai_answer_manager = AIAnswerManager(self.config_manager)
             self.notifier = WindowsNotifier()
             self.hotkey_manager = HotkeyManager()
+            self.clipboard_chat_manager = ClipboardChatManager(self.config_manager)
 
             # 设置快捷键
             self._setup_hotkey()
@@ -1477,6 +1481,8 @@ class ModernMainWindow:
         self.hotkey_manager.set_hotkey_config(hotkey_config)
         self.hotkey_manager.set_hotkey_callback(self.take_screenshot)
         self.hotkey_manager.set_region_callback(self.handle_region_shortcut)
+        self.hotkey_manager.set_clipboard_callback(self.handle_clipboard_chat)
+        self.hotkey_manager.set_clear_context_callback(self.handle_clear_context)
         self.hotkey_manager.start_listener()
 
     def _update_hotkey_display(self):
@@ -1702,15 +1708,19 @@ class ModernMainWindow:
 • ALT+SHIFT+Q：截图答题
 • ALT+CTRL+1：设置截图区域点1
 • ALT+CTRL+2：设置截图区域点2
+• CTRL+SHIFT+1：剪贴板AI对话（发送剪贴板内容给AI，回答放回剪贴板）
+• CTRL+SHIFT+0：清空对话上下文
 • ESC：取消设置模式
 
 📋 功能说明：
 • 区域设置：固定答题区域，提高效率
+• 剪贴板对话：保存上下文的AI对话，适合连续问答
 • 配置管理：自定义AI模型、参数等
 • 状态指示：绿色=正常，红色=需配置
 
 💡 提示：
-首次使用建议先配置区域，然后就可以一键答题了！"""
+首次使用建议先配置区域，然后就可以一键答题了！
+剪贴板功能可以用于任何文本问答，支持多轮对话。"""
         messagebox.showinfo("使用帮助", help_text)
 
     def cleanup(self):
@@ -1719,3 +1729,119 @@ class ModernMainWindow:
             self.hotkey_manager.stop_listener()
         if hasattr(self, 'mouse_listener') and self.mouse_listener.is_alive():
             self.mouse_listener.stop()
+
+    def handle_clipboard_chat(self):
+        """处理剪贴板对话快捷键"""
+        try:
+            # 更新状态
+            self.status_label.config(text="正在处理剪贴板内容...", fg=ModernTheme.INFO)
+            self.root.update_idletasks()
+
+            # 获取剪贴板内容
+            try:
+                clipboard_text = self.root.clipboard_get()
+            except tk.TclError:
+                self.status_label.config(text="[错误] 剪贴板为空", fg=ModernTheme.ERROR)
+                return
+
+            if not clipboard_text or not clipboard_text.strip():
+                self.status_label.config(text="[错误] 剪贴板内容为空", fg=ModernTheme.ERROR)
+                return
+
+            # 在后台线程中处理AI对话
+            chat_thread = threading.Thread(
+                target=self._process_clipboard_chat,
+                args=(clipboard_text,),
+                daemon=True
+            )
+            chat_thread.start()
+
+        except Exception as e:
+            self.status_label.config(
+                text=f"[错误] 剪贴板处理失败: {str(e)}",
+                fg=ModernTheme.ERROR
+            )
+            print(f"剪贴板处理失败: {e}")
+
+    def _process_clipboard_chat(self, clipboard_text):
+        """在后台处理剪贴板AI对话"""
+        try:
+            # 调用AI获取回答
+            result = self.clipboard_chat_manager.process_clipboard_text(clipboard_text)
+
+            # 更新UI状态和剪贴板
+            self.root.after(0, lambda: self._update_clipboard_result(result))
+
+        except Exception as e:
+            error_msg = f"[错误] AI对话失败: {str(e)}"
+            self.root.after(0, lambda: self.status_label.config(
+                text=error_msg,
+                fg=ModernTheme.ERROR
+            ))
+            print(f"AI对话失败: {e}")
+
+    def _update_clipboard_result(self, result):
+        """更新剪贴板结果"""
+        try:
+            if result.get('status') == 'success':
+                answer = result.get('answer', '')
+                history_count = result.get('history_count', 0)
+
+                # 更新剪贴板
+                self.root.clipboard_clear()
+                self.root.clipboard_append(answer)
+
+                # 更新状态
+                self.status_label.config(
+                    text=f"[成功] AI回答已复制到剪贴板 (上下文: {history_count}条)",
+                    fg=ModernTheme.SUCCESS
+                )
+                self.status_bar.set_status("剪贴板AI对话完成", "success")
+
+                # 显示系统通知
+                if self.notifier:
+                    preview = answer[:50] + "..." if len(answer) > 50 else answer
+                    self.notifier.show_answer_notification(
+                        f"✅ 回答已复制\n\n{preview}",
+                        'success'
+                    )
+            else:
+                error_msg = result.get('message', '未知错误')
+                self.status_label.config(
+                    text=f"[错误] {error_msg}",
+                    fg=ModernTheme.ERROR
+                )
+
+        except Exception as e:
+            print(f"更新剪贴板结果失败: {e}")
+
+    def handle_clear_context(self):
+        """处理清空上下文快捷键"""
+        try:
+            result = self.clipboard_chat_manager.clear_context()
+
+            if result.get('status') == 'success':
+                self.status_label.config(
+                    text="[成功] 对话上下文已清空",
+                    fg=ModernTheme.SUCCESS
+                )
+                self.status_bar.set_status("上下文已清空", "success")
+
+                # 显示系统通知
+                if self.notifier:
+                    self.notifier.show_answer_notification(
+                        "🗑️ 对话上下文已清空",
+                        'success'
+                    )
+            else:
+                self.status_label.config(
+                    text=f"[错误] 清空上下文失败",
+                    fg=ModernTheme.ERROR
+                )
+
+        except Exception as e:
+            self.status_label.config(
+                text=f"[错误] 清空上下文失败: {str(e)}",
+                fg=ModernTheme.ERROR
+            )
+            print(f"清空上下文失败: {e}")

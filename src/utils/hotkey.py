@@ -15,6 +15,8 @@ class HotkeyManager:
         self.listener = None
         self.hotkey_callback = None  # 截图快捷键回调
         self.region_callback = None  # 区域设置快捷键回调
+        self.clipboard_callback = None  # 剪贴板对话回调
+        self.clear_context_callback = None  # 清空上下文回调
 
     def set_hotkey_config(self, config):
         """设置快捷键配置"""
@@ -27,6 +29,14 @@ class HotkeyManager:
     def set_region_callback(self, callback):
         """设置区域设置快捷键回调函数"""
         self.region_callback = callback
+
+    def set_clipboard_callback(self, callback):
+        """设置剪贴板对话回调函数"""
+        self.clipboard_callback = callback
+
+    def set_clear_context_callback(self, callback):
+        """设置清空上下文回调函数"""
+        self.clear_context_callback = callback
 
     def on_key_press(self, key):
         """键盘按下事件处理"""
@@ -54,28 +64,45 @@ class HotkeyManager:
                         self.region_callback.on_esc_press()
                     return
 
-                # 检查数字键（区域设置快捷键 ALT+CTRL+1/2）
+                # 检查数字键（区域设置快捷键 ALT+CTRL+1/2, 剪贴板快捷键 CTRL+SHIFT+1/0）
                 is_digit_key = False
                 digit_value = None
 
-                if char_to_check and char_to_check in ['1', '2']:
+                if char_to_check and char_to_check in ['0', '1', '2']:
                     is_digit_key = True
                     digit_value = char_to_check
 
                 if not is_digit_key and hasattr(key, 'vk'):
-                    if key.vk == 49:  # 1的VK码
+                    if key.vk == 48:  # 0的VK码
+                        is_digit_key = True
+                        digit_value = '0'
+                    elif key.vk == 49:  # 1的VK码
                         is_digit_key = True
                         digit_value = '1'
                     elif key.vk == 50:  # 2的VK码
                         is_digit_key = True
                         digit_value = '2'
 
-                if is_digit_key and digit_value and self.region_callback:
-                    if self.key_states['alt'] and self.key_states['ctrl']:
-                        self.region_callback(digit_value)
-                    elif hasattr(self.region_callback, 'on_digit_press_in_mode'):
-                        # 如果在设置模式中按数字键
-                        self.region_callback.on_digit_press_in_mode(digit_value)
+                if is_digit_key and digit_value:
+                    # 剪贴板快捷键 CTRL+SHIFT+1
+                    if digit_value == '1' and self.key_states['ctrl'] and self.key_states['shift'] and not self.key_states['alt']:
+                        if self.clipboard_callback:
+                            self.clipboard_callback()
+                        return
+
+                    # 清空上下文快捷键 CTRL+SHIFT+0
+                    if digit_value == '0' and self.key_states['ctrl'] and self.key_states['shift'] and not self.key_states['alt']:
+                        if self.clear_context_callback:
+                            self.clear_context_callback()
+                        return
+
+                    # 区域设置快捷键 ALT+CTRL+1/2
+                    if self.region_callback:
+                        if self.key_states['alt'] and self.key_states['ctrl'] and not self.key_states['shift']:
+                            self.region_callback(digit_value)
+                        elif hasattr(self.region_callback, 'on_digit_press_in_mode'):
+                            # 如果在设置模式中按数字键
+                            self.region_callback.on_digit_press_in_mode(digit_value)
                     return
 
                 # 检查截图快捷键
