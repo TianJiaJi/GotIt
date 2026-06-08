@@ -33,11 +33,20 @@ GotIt/
 
 ## 下载模型到本地
 
-运行以下脚本将 RapidOCR 缓存的模型复制到项目目录：
+模型现在会在首次运行时自动下载和管理，无需手动操作。
+
+如果你需要手动触发模型下载，可以运行：
 
 ```bash
-python scripts/download_models.py
+python gotit.py
 ```
+
+程序会自动：
+1. 检查 `models/ocr/` 目录是否存在模型文件
+2. 如果不存在，通过 RapidOCR 自动下载
+3. 将模型复制到项目目录
+
+这是通过 `src/core/model_manager.py` 中的 `ModelManager` 类实现的。
 
 ## 依赖安装
 
@@ -91,7 +100,7 @@ pip install -r requirements.txt
 
 打包应用时，建议：
 
-1. 使用本地模型（运行 `download_models.py`）
+1. 运行一次程序让模型自动下载到 `models/ocr/`
 2. 将 `models/` 目录包含在打包文件中
 3. 确保 `requirements.txt` 中的依赖在目标环境安装
 
