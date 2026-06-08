@@ -1,175 +1,137 @@
-"""AI答题模块"""
-import os
+"""AI answer generation through LiteLLM."""
+
+from __future__ import annotations
+
 import json
+import os
+from collections.abc import Callable
+from typing import Any
+
+from .llm_client import OpenAICompatibleClient, is_local_api
 
 
 class AIAnswerManager:
-    """AI答题管理器"""
+    """Generate short structured answers for OCR text."""
 
-    def __init__(self, config_manager=None):
-        # 如果传入config_manager，则从配置获取参数
-        if config_manager:
-            ai_config = config_manager.get_ai_config()
-            self.model_name = ai_config['model']
-            self.api_key = ai_config['api_key']
-            self.api_base = ai_config['api_base']
-            self.temperature = ai_config.get('temperature', 0.3)
-            self.max_tokens = ai_config.get('max_tokens', 200)
-        else:
-            # 默认配置（直接读取环境变量）
-            self.model_name = os.getenv("LITELLM_MODEL", "deepseek/deepseek-chat")
-            self.api_key = os.getenv("LITELLM_API_KEY", "")
-            self.api_base = os.getenv("LITELLM_API_BASE", "https://api.deepseek.com")
-            self.temperature = 0.3
-            self.max_tokens = 200
-
-        self.system_prompt = self._get_system_prompt()
+    def __init__(
+        self,
+        config_manager=None,
+        completion_fn: Callable[..., Any] | None = None,
+        client: OpenAICompatibleClient | None = None,
+    ):
+        self.config_manager = config_manager
+        self._completion_fn = completion_fn
+        self.client = client or OpenAICompatibleClient()
         self._initialized = False
-        # 延迟初始化，避免启动时导入litellm导致的网络连接
-        # self.init_ai() 将在首次使用时调用
+        self.reload_config()
+        self.system_prompt = self._get_system_prompt()
 
-    def _get_system_prompt(self):
-        """获取系统提示词"""
-        return """# Role
-你是一个极速、精准的"直接给答案"助手。你的唯一任务是：阅读用户通过 OCR 识别的文本（通常是题目），并直接输出最终答案。
+    def reload_config(self) -> None:
+        if self.config_manager:
+            config = self.config_manager.get_ai_config()
+            self.model_name = config["model"].strip()
+            self.api_key = config["api_key"].strip()
+            self.api_base = config["api_base"].strip()
+            self.temperature = config["temperature"]
+            self.max_tokens = config["max_tokens"]
+        else:
+            self.model_name = os.getenv("GOTIT_MODEL", "deepseek-v4-flash")
+            self.api_key = os.getenv("GOTIT_API_KEY", "")
+            self.api_base = os.getenv("GOTIT_API_BASE", "https://api.deepseek.com")
+            self.temperature = 0.3
+            self.max_tokens = 400
 
-# Constraints (绝对红线)
-1. **禁止任何推理**：绝对不要输出解题步骤、分析过程、思考过程或任何解释性文字。
-2. **禁止任何废话**：不要输出"答案是"、"选"、"答："等前缀，直接给出核心结果。
-3. **极简输出**：答案必须极其精炼，适合在系统右下角的小弹窗中一眼看完（控制在 50 个字符以内）。
-   - 如果是选择题，直接输出"选项字母. 选项内容"（如：B. 2）。
-   - 如果是判断题，直接输出"正确"、"错误"（或"对"、"错"，尽量与题目选项保持一致）。
-4. **严格 JSON**：必须且只能输出合法的 JSON 字符串，不要包含 ```json 等 Markdown 标记。
+    @staticmethod
+    def _get_system_prompt() -> str:
+        return """你是一个快速、准确的答题助手。
+只返回合法 JSON，不要包含 Markdown 标记或解释过程：
+{"status":"success","answer":"最终答案"}
+选择题返回“选项字母. 选项内容”，判断题返回“正确”或“错误”。
+如果文本不是有效题目，返回：
+{"status":"error","answer":"未识别到有效题目，请重新截图"}
+答案尽量控制在 80 个字符以内。"""
 
-# Output Format
-严格遵循以下 JSON 结构：
-{
-  "status": "success" 或 "error",
-  "answer": "最终答案。"
-}
+    def init_ai(self) -> bool:
+        self._initialized = True
+        return True
 
-# Rules for Error Handling
-- 如果 OCR 文本完全是乱码、无意义字符，或者明显无法构成一个问题，请返回：
-  {"status": "error", "answer": "未识别到有效题目，请重新截图"}
-- 如果题目缺少关键条件无法解答，请返回：
-  {"status": "error", "answer": "题目条件不足，无法解答"}
+    def _completion(self, **kwargs):
+        if self._completion_fn:
+            return self._completion_fn(**kwargs)
+        return self.client.complete(**kwargs)
 
-# Examples
-User: "1+1等于几？ A. 1 B. 2 C. 3"
-Assistant: {"status": "success", "answer": "B. 2"}
+    @staticmethod
+    def _response_text(response) -> str:
+        if isinstance(response, str):
+            return response
+        return response.choices[0].message.content
 
-User: "地球围绕太阳转。 (判断题)"
-Assistant: {"status": "success", "answer": "正确"}
+    @staticmethod
+    def parse_response(answer_text: str) -> dict[str, str]:
+        text = (answer_text or "").strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines:
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines.pop()
+            text = "\n".join(lines).strip()
 
-User: "水在标准大气压下50度沸腾。 A. 对 B. 错"
-Assistant: {"status": "success", "answer": "B. 错"}
-
-User: "中国的首都是哪里？"
-Assistant: {"status": "success", "answer": "北京"}
-
-User: "asdfghjkl 12345"
-Assistant: {"status": "error", "answer": "未识别到有效题目，请重新截图"}"""
-
-    def init_ai(self):
-        """初始化AI引擎"""
         try:
-            print(f"AI初始化成功，使用模型: {self.model_name}")
-            return True
-        except Exception as e:
-            print(f"AI初始化失败: {e}")
-            return False
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            start = text.find("{")
+            end = text.rfind("}")
+            if start >= 0 and end > start:
+                try:
+                    parsed = json.loads(text[start : end + 1])
+                except json.JSONDecodeError:
+                    parsed = None
+            else:
+                parsed = None
 
-    def get_answer(self, question_text):
-        """获取题目答案"""
-        if not question_text or not question_text.strip():
+        if isinstance(parsed, dict) and isinstance(parsed.get("answer"), str):
+            status = parsed.get("status", "success")
+            if status not in {"success", "error"}:
+                status = "success"
+            return {"status": status, "answer": parsed["answer"].strip()}
+
+        if text:
+            return {"status": "success", "answer": text}
+        return {"status": "error", "answer": "AI未返回内容"}
+
+    def get_answer(self, question_text: str) -> dict[str, str]:
+        if not question_text or not question_text.strip() or question_text.startswith("["):
             return {"status": "error", "answer": "未识别到有效题目，请重新截图"}
-
-        # 延迟初始化AI，在首次使用时才导入litellm
+        if not self.is_available():
+            return {"status": "error", "answer": "请先配置AI模型和API密钥"}
         if not self._initialized:
-            print("首次使用AI，正在初始化...")
-            if not self.init_ai():
-                return {"status": "error", "answer": "AI初始化失败"}
-            self._initialized = True
+            self.init_ai()
 
         try:
-            print(f"开始AI答题，问题: {question_text[:100]}...")
-
-            # 动态导入litellm，避免启动时的网络连接
-            from litellm import completion
-
-            # 调用LiteLLM
-            response = completion(
+            response = self._completion(
                 model=self.model_name,
                 messages=[
                     {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": question_text}
+                    {"role": "user", "content": question_text},
                 ],
                 api_key=self.api_key,
-                base_url=self.api_base,
+                api_base=self.api_base,
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
             )
+            return self.parse_response(self._response_text(response))
+        except Exception as exc:
+            print(f"AI答题失败: {exc}")
+            return {"status": "error", "answer": f"AI调用失败: {exc}"}
 
-            # 提取回答内容
-            answer_text = response.choices[0].message.content.strip()
-            print(f"AI原始回答: {answer_text}")
+    def is_available(self) -> bool:
+        if not self.model_name:
+            return False
+        return bool(self.api_key) or is_local_api(self.api_base)
 
-            # 尝试解析JSON
-            try:
-                # 移除可能的markdown标记
-                if answer_text.startswith("```json"):
-                    answer_text = answer_text.replace("```json", "").replace("```", "").strip()
-                elif answer_text.startswith("```"):
-                    answer_text = answer_text.replace("```", "").strip()
-
-                result = json.loads(answer_text)
-
-                # 验证JSON结构
-                if "status" not in result or "answer" not in result:
-                    print(f"AI返回的JSON格式不正确: {result}")
-                    return {"status": "error", "answer": "AI返回格式错误"}
-
-                print(f"AI解析结果: {result}")
-                return result
-
-            except json.JSONDecodeError as je:
-                print(f"JSON解析失败: {je}, 原始文本: {answer_text}")
-                # 如果JSON解析失败，尝试直接使用文本内容
-                return {"status": "success", "answer": answer_text}
-
-        except Exception as e:
-            print(f"AI答题失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return {"status": "error", "answer": f"AI调用失败: {str(e)}"}
-
-    def is_available(self):
-        """检查AI是否可用"""
-        return bool(self.model_name and self.api_key)
-
-    def set_model_config(self, model_name, api_key="", api_base=""):
-        """设置模型配置"""
-        self.model_name = model_name
-        self.api_key = api_key
-        self.api_base = api_base
-        print(f"模型配置已更新: {model_name}")
-        return True
-
-    def is_available(self):
-        """检查AI是否可用"""
-        return bool(self.model_name)
-
-    def set_model_config(self, model_name, api_key="", api_base=""):
-        """设置模型配置"""
-        self.model_name = model_name
-        self.api_key = api_key
-        self.api_base = api_base
-
-        # 更新环境变量
-        if api_key:
-            os.environ["LITELLM_API_KEY"] = api_key
-        if api_base:
-            os.environ["LITELLM_API_BASE"] = api_base
-
-        print(f"模型配置已更新: {model_name}")
+    def set_model_config(self, model_name: str, api_key: str = "", api_base: str = "") -> bool:
+        self.model_name = model_name.strip()
+        self.api_key = api_key.strip()
+        self.api_base = api_base.strip()
         return True

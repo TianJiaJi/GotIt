@@ -39,7 +39,7 @@ class ScreenshotManager:
                 print("[成功] 使用全屏截图")
 
             # 生成文件名（使用时间戳）
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             filename = f"screenshot_{timestamp}.png"
 
             # 保存到screenshots目录

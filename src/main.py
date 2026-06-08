@@ -1,12 +1,11 @@
-"""截图答题工具 - 主程序（现代化版本）"""
+"""截图答题工具主程序。"""
 import tkinter as tk
 
-# 导入现代化UI组件
-from ui.modern_ui import ModernMainWindow
+from ui.app_ui import ModernMainWindow
 
 
 def main():
-    """主函数 - 使用现代化UI"""
+    """创建并运行桌面应用。"""
     root = tk.Tk()
 
     # 使用现代化主窗口

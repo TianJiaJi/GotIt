@@ -13,6 +13,10 @@ outputs/ocr_results/*.txt
 # 配置文件（包含敏感信息）
 config/config.json
 
+# 本地对话上下文
+clipboard_context.json
+data/
+
 # 虚拟环境
 .venv/
 
