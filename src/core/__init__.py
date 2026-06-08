@@ -1,2 +1,5 @@
-"""核心功能模块"""
-from .notifier import WindowsNotifier
+"""Core application services."""
+
+from .notifier import SystemNotifier, WindowsNotifier
+
+__all__ = ["SystemNotifier", "WindowsNotifier"]

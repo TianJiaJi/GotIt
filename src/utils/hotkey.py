@@ -17,6 +17,7 @@ class HotkeyManager:
         self.region_callback = None  # 区域设置快捷键回调
         self.clipboard_callback = None  # 剪贴板对话回调
         self.clear_context_callback = None  # 清空上下文回调
+        self._triggered_keys = set()
 
     def set_hotkey_config(self, config):
         """设置快捷键配置"""
@@ -49,6 +50,10 @@ class HotkeyManager:
             elif key == keyboard.Key.shift_l or key == keyboard.Key.shift_r:
                 self.key_states['shift'] = True
             else:
+                key_id = str(key)
+                if key_id in self._triggered_keys:
+                    return
+
                 # 检查普通按键
                 char_to_check = None
                 try:
@@ -87,18 +92,21 @@ class HotkeyManager:
                     # 剪贴板快捷键 CTRL+SHIFT+1
                     if digit_value == '1' and self.key_states['ctrl'] and self.key_states['shift'] and not self.key_states['alt']:
                         if self.clipboard_callback:
+                            self._triggered_keys.add(key_id)
                             self.clipboard_callback()
                         return
 
                     # 清空上下文快捷键 CTRL+SHIFT+0
                     if digit_value == '0' and self.key_states['ctrl'] and self.key_states['shift'] and not self.key_states['alt']:
                         if self.clear_context_callback:
+                            self._triggered_keys.add(key_id)
                             self.clear_context_callback()
                         return
 
                     # 区域设置快捷键 ALT+CTRL+1/2
                     if self.region_callback:
                         if self.key_states['alt'] and self.key_states['ctrl'] and not self.key_states['shift']:
+                            self._triggered_keys.add(key_id)
                             self.region_callback(digit_value)
                         elif hasattr(self.region_callback, 'on_digit_press_in_mode'):
                             # 如果在设置模式中按数字键
@@ -110,6 +118,7 @@ class HotkeyManager:
                     if char_to_check.lower() == self.hotkey_config['key'].lower():
                         if self.check_hotkey_combination():
                             if self.hotkey_callback:
+                                self._triggered_keys.add(key_id)
                                 self.hotkey_callback()
 
         except Exception as e:
@@ -124,6 +133,7 @@ class HotkeyManager:
                 self.key_states['alt'] = False
             elif key == keyboard.Key.shift_l or key == keyboard.Key.shift_r:
                 self.key_states['shift'] = False
+            self._triggered_keys.discard(str(key))
         except AttributeError:
             pass
 
@@ -132,13 +142,11 @@ class HotkeyManager:
         if not self.hotkey_config:
             return False
 
-        required_modifiers = self.hotkey_config['modifiers'].lower().split('+')
-
-        for modifier in required_modifiers:
-            if not self.key_states.get(modifier, False):
-                return False
-
-        return True
+        required_modifiers = set(self.hotkey_config['modifiers'].lower().split('+'))
+        active_modifiers = {
+            modifier for modifier, pressed in self.key_states.items() if pressed
+        }
+        return active_modifiers == required_modifiers
 
     def start_listener(self):
         """启动键盘监听器"""

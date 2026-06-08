@@ -1,126 +1,111 @@
-"""OCR识别模块"""
+"""OCR recognition and result persistence."""
+
+from __future__ import annotations
+
 import os
-from rapidocr_onnxruntime import RapidOCR
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
 
 class OCRManager:
-    """OCR识别管理器"""
+    """Lazy RapidOCR adapter with confidence filtering."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        config_manager=None,
+        engine_factory: Callable[[], Any] | None = None,
+        project_root: str | os.PathLike[str] | None = None,
+    ):
+        self.config_manager = config_manager
+        self._engine_factory = engine_factory
         self.ocr = None
-        self._ocr_initialized = False
-        # 设置OCR结果保存目录
-        # 当前文件在src/core/ocr.py，需要回退两级到项目根目录
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        self.ocr_results_dir = os.path.join(project_root, 'outputs', 'ocr_results')
-        os.makedirs(self.ocr_results_dir, exist_ok=True)
-        # 延迟初始化，不在这里调用init_ocr()
+        self._initialization_attempted = False
 
-    def init_ocr(self):
-        """初始化OCR引擎"""
-        try:
-            self.ocr = RapidOCR()
-            print("OCR初始化成功")
-            return True
-        except Exception as e:
-            print(f"OCR初始化失败: {e}")
-            return False
+        root = Path(project_root) if project_root else Path(__file__).resolve().parents[2]
+        self.ocr_results_dir = root / "outputs" / "ocr_results"
+        self.ocr_results_dir.mkdir(parents=True, exist_ok=True)
 
-    def recognize_text(self, image_path):
-        """识别图片中的文字"""
-        # 延迟初始化OCR，在第一次使用时才加载
-        if not self._ocr_initialized:
-            print("首次使用OCR，正在初始化...")
-            if not self.init_ocr():
-                return "[OCR初始化失败]"
-            self._ocr_initialized = True
-
-        if self.ocr is None:
-            print("OCR未初始化，无法识别")
-            return None
-
-        try:
-            print(f"开始OCR识别: {image_path}")
-
-            # RapidOCR调用：直接调用即可获取文本
-            # 返回格式：([detection_list], something_else)
-            # detection_list中的每个元素：[[[x1,y1], [x2,y2], [x3,y3], [x4,y4]], text, confidence]
-            result = self.ocr(image_path)
-
-            if result is None or len(result) == 0:
-                print("OCR返回空结果")
-                return "[未识别到文本]"
-
-            # RapidOCR返回tuple，第一个元素是检测结果列表
-            detection_list = result[0] if isinstance(result, tuple) else result
-
-            if detection_list is None or len(detection_list) == 0:
-                print("OCR检测结果为空")
-                return "[未识别到文本]"
-
-            print(f"OCR识别到 {len(detection_list)} 个文本行")
-
-            # 提取识别的文本
-            texts = []
-
-            # RapidOCR返回格式：[(bbox, text, confidence), ...]
-            # bbox: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
-            # text: 识别的文本字符串
-            # confidence: 置信度分数
-            for item in detection_list:
-                if item and len(item) >= 2:
-                    # item[0] 是边界框坐标 [[[x1,y1], [x2,y2], [x3,y3], [x4,y4]]]
-                    # item[1] 是文本内容
-                    # item[2] 是置信度
-
-                    text = item[1]
-                    confidence = item[2] if len(item) > 2 else 0
-
-                    if text and isinstance(text, str) and text.strip():
-                        full_text = text.strip()
-                        texts.append(full_text)
-                        print(f"识别到文本: '{full_text[:50]}...' (长度: {len(full_text)}, 置信度: {confidence})")
-
-            if texts:
-                recognized_text = "\n".join(texts)
-                print(f"OCR识别成功，共识别到 {len(texts)} 行文本")
-                print(f"识别的文本内容:\n{recognized_text}")
-                return recognized_text
-            else:
-                print("OCR未识别到有效文本")
-                return "[未识别到文本]"
-
-        except Exception as e:
-            print(f"OCR识别失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return f"[识别失败: {e}]"
-
-    def save_result(self, text, screenshot_path):
-        """保存OCR识别结果到文本文件"""
-        try:
-            # 从截图路径提取文件名
-            filename = os.path.basename(screenshot_path).replace('.png', '.txt')
-            # 保存到OCR结果目录
-            txt_path = os.path.join(self.ocr_results_dir, filename)
-            with open(txt_path, 'w', encoding='utf-8') as f:
-                f.write(text)
-            print(f"OCR结果已保存到: {txt_path}")
-            return txt_path
-        except Exception as e:
-            print(f"保存OCR结果失败: {e}")
-            return None
-
-    def is_available(self):
-        """检查OCR是否可用"""
-        # 如果已经初始化，直接返回
+    def init_ocr(self) -> bool:
         if self.ocr is not None:
             return True
-        # 如果未初始化，尝试快速初始化测试
+        self._initialization_attempted = True
         try:
-            # 尝试初始化OCR来检查是否可用
-            if not self._ocr_initialized:
-                return self.init_ocr()
+            if self._engine_factory:
+                self.ocr = self._engine_factory()
+            else:
+                try:
+                    from rapidocr import RapidOCR
+                except ImportError:
+                    # Keep existing installations working during migration.
+                    from rapidocr_onnxruntime import RapidOCR
+
+                self.ocr = RapidOCR()
+            print("OCR初始化成功")
             return True
-        except:
+        except Exception as exc:
+            print(f"OCR初始化失败: {exc}")
+            return False
+
+    def _confidence_threshold(self) -> float:
+        if not self.config_manager:
+            return 0.5
+        return float(self.config_manager.get_ocr_config().get("confidence_threshold", 0.5))
+
+    def recognize_text(self, image_path: str | os.PathLike[str]) -> str:
+        if self.ocr is None and not self.init_ocr():
+            return "[OCR初始化失败]"
+
+        try:
+            threshold = self._confidence_threshold()
+            texts: list[str] = []
+            result = self.ocr(str(image_path))
+
+            if hasattr(result, "txts"):
+                result_texts = result.txts
+                if result_texts is None:
+                    result_texts = []
+                result_scores = getattr(result, "scores", None)
+                if result_scores is None:
+                    result_scores = []
+                for index, text in enumerate(result_texts):
+                    confidence = float(result_scores[index]) if index < len(result_scores) else 1.0
+                    if isinstance(text, str) and text.strip() and confidence >= threshold:
+                        texts.append(text.strip())
+            else:
+                detection_list = result[0] if isinstance(result, tuple) else result
+                for item in detection_list or []:
+                    if not item or len(item) < 2:
+                        continue
+                    text = item[1]
+                    confidence = float(item[2]) if len(item) > 2 and item[2] is not None else 0.0
+                    if isinstance(text, str) and text.strip() and confidence >= threshold:
+                        texts.append(text.strip())
+
+            return "\n".join(texts) if texts else "[未识别到符合置信度要求的文本]"
+        except Exception as exc:
+            print(f"OCR识别失败: {exc}")
+            return f"[识别失败: {exc}]"
+
+    def save_result(self, text: str, screenshot_path: str | os.PathLike[str]):
+        try:
+            filename = Path(screenshot_path).with_suffix(".txt").name
+            txt_path = self.ocr_results_dir / filename
+            txt_path.write_text(text, encoding="utf-8")
+            return str(txt_path)
+        except OSError as exc:
+            print(f"保存OCR结果失败: {exc}")
+            return None
+
+    def is_available(self) -> bool:
+        if self.ocr is not None or self._engine_factory:
+            return True
+        try:
+            import importlib.util
+
+            return (
+                importlib.util.find_spec("rapidocr") is not None
+                or importlib.util.find_spec("rapidocr_onnxruntime") is not None
+            )
+        except (ImportError, ValueError):
             return False

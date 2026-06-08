@@ -1,168 +1,157 @@
-"""剪贴板AI对话模块 - 支持上下文保存的剪贴板AI对话"""
+"""Context-aware clipboard and text chat."""
+
+from __future__ import annotations
+
 import json
 import os
+import platform
+import threading
+from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from .llm_client import OpenAICompatibleClient, is_local_api
+
+
+def default_context_file() -> Path:
+    system = platform.system()
+    if system == "Windows":
+        base = Path(os.getenv("LOCALAPPDATA", Path.home()))
+    elif system == "Darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        base = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    return base / "GotIt" / "clipboard_context.json"
 
 
 class ClipboardChatManager:
-    """剪贴板AI对话管理器"""
+    """Persist a bounded conversation and send it through LiteLLM."""
 
-    def __init__(self, config_manager=None):
+    def __init__(
+        self,
+        config_manager=None,
+        context_file: str | os.PathLike[str] | None = None,
+        completion_fn: Callable[..., Any] | None = None,
+        client: OpenAICompatibleClient | None = None,
+    ):
         self.config_manager = config_manager
-        self.context_file = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            'clipboard_context.json'
-        )
-
-        # 对话上下文
-        self.conversation_history = []
-        self.max_history = 50  # 最多保存50条对话历史
-
-        # AI配置
-        if config_manager:
-            ai_config = config_manager.get_ai_config()
-            self.model_name = ai_config['model']
-            self.api_key = ai_config['api_key']
-            self.api_base = ai_config['api_base']
-            self.temperature = ai_config.get('temperature', 0.7)
-            self.max_tokens = ai_config.get('max_tokens', 2000)
-        else:
-            self.model_name = os.getenv("LITELLM_MODEL", "deepseek/deepseek-chat")
-            self.api_key = os.getenv("LITELLM_API_KEY", "")
-            self.api_base = os.getenv("LITELLM_API_BASE", "https://api.deepseek.com")
-            self.temperature = 0.7
-            self.max_tokens = 2000
-
-        self._initialized = False
-
-        # 加载历史对话
+        self.context_file = Path(context_file) if context_file else default_context_file()
+        self._completion_fn = completion_fn
+        self.client = client or OpenAICompatibleClient()
+        self.conversation_history: list[dict[str, str]] = []
+        self.max_history = 50
+        self._lock = threading.Lock()
+        self.reload_config()
         self._load_context()
 
-    def _get_system_prompt(self):
-        """获取系统提示词"""
-        return """# Role
-你是一个智能对话助手，擅长回答用户的各种问题。
+    def reload_config(self) -> None:
+        if self.config_manager:
+            config = self.config_manager.get_ai_config()
+            self.model_name = config["model"].strip()
+            self.api_key = config["api_key"].strip()
+            self.api_base = config["api_base"].strip()
+            self.temperature = min(1.2, max(0.1, float(config.get("temperature", 0.7))))
+            self.max_tokens = max(200, int(config.get("max_tokens", 1200)))
+        else:
+            self.model_name = os.getenv("GOTIT_MODEL", "deepseek-v4-flash")
+            self.api_key = os.getenv("GOTIT_API_KEY", "")
+            self.api_base = os.getenv("GOTIT_API_BASE", "https://api.deepseek.com")
+            self.temperature = 0.7
+            self.max_tokens = 1200
 
-# Guidelines
-1. 回答要简洁、准确、有帮助
-2. 如果是代码问题，请提供清晰的代码示例
-3. 如果是概念解释，请用通俗易懂的语言
-4. 保持对话连贯性，参考历史上下文
-5. 回答要精炼，适合复制粘贴使用
+    @staticmethod
+    def _get_system_prompt() -> str:
+        return (
+            "你是一个简洁、准确的中文助手。结合最近的对话上下文回答用户，"
+            "代码问题给出可直接使用的示例。直接输出回答正文。"
+        )
 
-# Output Format
-直接输出回答内容，不要包含任何格式标记或元数据。"""
-
-    def _load_context(self):
-        """加载对话上下文"""
+    def _load_context(self) -> None:
         try:
-            if os.path.exists(self.context_file):
-                with open(self.context_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.conversation_history = data.get('history', [])
-                    print(f"已加载 {len(self.conversation_history)} 条对话历史")
-        except Exception as e:
-            print(f"加载对话历史失败: {e}")
+            if self.context_file.exists():
+                data = json.loads(self.context_file.read_text(encoding="utf-8"))
+                history = data.get("history", [])
+                if isinstance(history, list):
+                    self.conversation_history = history[-self.max_history :]
+        except (OSError, json.JSONDecodeError):
             self.conversation_history = []
 
-    def _save_context(self):
-        """保存对话上下文"""
-        try:
-            with open(self.context_file, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'history': self.conversation_history,
-                    'last_update': datetime.now().isoformat()
-                }, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"保存对话历史失败: {e}")
+    def _save_context(self) -> None:
+        self.context_file.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "history": self.conversation_history,
+            "last_update": datetime.now().isoformat(timespec="seconds"),
+        }
+        self.context_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def clear_context(self):
-        """清空对话上下文"""
-        self.conversation_history = []
-        self._save_context()
+        with self._lock:
+            self.conversation_history = []
+            try:
+                self._save_context()
+            except OSError as exc:
+                return {"status": "error", "message": f"清空上下文失败: {exc}"}
         return {"status": "success", "message": "对话上下文已清空"}
 
-    def _init_ai(self):
-        """初始化AI引擎"""
-        if self._initialized:
-            return True
+    def _completion(self, **kwargs):
+        if self._completion_fn:
+            return self._completion_fn(**kwargs)
+        return self.client.complete(**kwargs)
 
-        try:
-            print(f"剪贴板AI初始化成功，使用模型: {self.model_name}")
-            self._initialized = True
-            return True
-        except Exception as e:
-            print(f"剪贴板AI初始化失败: {e}")
-            return False
+    @staticmethod
+    def _response_text(response) -> str:
+        if isinstance(response, str):
+            return response
+        return response.choices[0].message.content
 
-    def process_clipboard_text(self, text):
-        """处理剪贴板文本，获取AI回答"""
-        if not text or not text.strip():
-            return {"status": "error", "message": "剪贴板内容为空"}
+    def process_clipboard_text(self, text: str):
+        prompt = (text or "").strip()
+        if not prompt:
+            return {"status": "error", "message": "输入内容为空"}
+        if not self.is_available():
+            return {"status": "error", "message": "请先配置AI模型和API密钥"}
 
-        # 初始化AI
-        if not self._init_ai():
-            return {"status": "error", "message": "AI初始化失败"}
-
-        try:
-            # 添加用户消息到历史
-            user_message = {"role": "user", "content": text.strip()}
-            self.conversation_history.append(user_message)
-
-            # 动态导入litellm
-            from litellm import completion
-
-            # 构建消息列表（包含系统提示和历史对话）
+        with self._lock:
+            user_message = {"role": "user", "content": prompt}
+            pending_history = [*self.conversation_history, user_message]
             messages = [{"role": "system", "content": self._get_system_prompt()}]
-            messages.extend(self.conversation_history[-20:])  # 只保留最近20条
+            messages.extend(pending_history[-20:])
 
-            print(f"发送到AI的对话轮数: {len(self.conversation_history)}")
-            print(f"用户输入: {text[:100]}...")
+            try:
+                response = self._completion(
+                    model=self.model_name,
+                    messages=messages,
+                    api_key=self.api_key,
+                    api_base=self.api_base,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                )
+                answer = self._response_text(response).strip()
+                if not answer:
+                    raise ValueError("AI未返回内容")
+            except Exception as exc:
+                return {"status": "error", "message": f"AI处理失败: {exc}"}
 
-            # 调用AI
-            response = completion(
-                model=self.model_name,
-                messages=messages,
-                api_key=self.api_key,
-                base_url=self.api_base,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens
-            )
-
-            # 提取回答
-            assistant_message_content = response.choices[0].message.content.strip()
-            print(f"AI回答: {assistant_message_content[:100]}...")
-
-            # 添加助手回答到历史
-            assistant_message = {"role": "assistant", "content": assistant_message_content}
-            self.conversation_history.append(assistant_message)
-
-            # 限制历史长度
-            if len(self.conversation_history) > self.max_history:
-                self.conversation_history = self.conversation_history[-self.max_history:]
-
-            # 保存上下文
-            self._save_context()
+            self.conversation_history = [
+                *pending_history,
+                {"role": "assistant", "content": answer},
+            ][-self.max_history :]
+            try:
+                self._save_context()
+            except OSError as exc:
+                return {"status": "error", "message": f"保存对话失败: {exc}"}
 
             return {
                 "status": "success",
-                "answer": assistant_message_content,
-                "history_count": len(self.conversation_history)
+                "answer": answer,
+                "history_count": len(self.conversation_history),
             }
 
-        except Exception as e:
-            print(f"剪贴板AI处理失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return {"status": "error", "message": f"AI处理失败: {str(e)}"}
-
     def get_context_info(self):
-        """获取上下文信息"""
-        return {
-            "total_messages": len(self.conversation_history),
-            "last_update": datetime.now().isoformat()
-        }
+        return {"total_messages": len(self.conversation_history)}
 
-    def is_available(self):
-        """检查是否可用"""
-        return bool(self.model_name and self.api_key)
+    def is_available(self) -> bool:
+        if not self.model_name:
+            return False
+        return bool(self.api_key) or is_local_api(self.api_base)
