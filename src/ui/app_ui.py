@@ -12,6 +12,17 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
 
 
+# 跨平台字体配置：Windows 使用微软雅黑，Mac/Linux 使用 Arial
+# 微软雅黑是 Windows 系统原生的中文字体，渲染效果最佳
+if sys.platform == "win32":
+    FONT_FAMILY = "Microsoft YaHei UI"
+    # Windows 上增加字体大小，因为微软雅黑渲染较细
+    FONT_SCALE = 1.2
+else:
+    FONT_FAMILY = "Arial"
+    FONT_SCALE = 1.0
+
+
 class Theme:
     BG = "#F3F5F9"
     SURFACE = "#FFFFFF"
@@ -95,7 +106,7 @@ class RegionSelector(tk.Toplevel):
             42,
             text="拖动鼠标框选答题区域，按 Esc 取消",
             fill="white",
-            font=("Arial", 18, "bold"),
+            font=(FONT_FAMILY, 22, "bold"),
         )
         self.canvas.bind("<ButtonPress-1>", self._start)
         self.canvas.bind("<B1-Motion>", self._drag)
@@ -162,7 +173,7 @@ class ResultDialog(tk.Toplevel):
             text="处理详情",
             bg=Theme.BG,
             fg=Theme.TEXT,
-            font=("Arial", 20, "bold"),
+            font=(FONT_FAMILY, 26, "bold"),
         ).pack(anchor="w")
 
         answer = self.result.answer
@@ -178,7 +189,7 @@ class ResultDialog(tk.Toplevel):
                 wraplength=620,
                 padx=16,
                 pady=14,
-                font=("Arial", 14, "bold"),
+                font=(FONT_FAMILY, 17, "bold"),
             ).pack(fill="x")
 
         card = self._card(container, "OCR 识别文本", expand=True)
@@ -186,7 +197,7 @@ class ResultDialog(tk.Toplevel):
             card,
             height=14,
             wrap="word",
-            font=("Arial", 12),
+            font=(FONT_FAMILY, 14),
             relief="flat",
             bg="#F9FAFB",
             fg=Theme.TEXT,
@@ -203,7 +214,7 @@ class ResultDialog(tk.Toplevel):
             text=path_text,
             bg=Theme.BG,
             fg=Theme.MUTED,
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
             anchor="w",
         ).pack(fill="x", pady=(12, 0))
 
@@ -220,7 +231,7 @@ class ResultDialog(tk.Toplevel):
             relief="flat",
             padx=24,
             pady=9,
-            font=("Arial", 11, "bold"),
+            font=(FONT_FAMILY, 13, "bold"),
             cursor="hand2",
         ).pack(side="right")
 
@@ -238,7 +249,7 @@ class ResultDialog(tk.Toplevel):
             text=title,
             bg=Theme.SURFACE,
             fg=Theme.MUTED,
-            font=("Arial", 10, "bold"),
+            font=(FONT_FAMILY, 12, "bold"),
         ).pack(anchor="w", padx=16, pady=(12, 8))
         body = tk.Frame(frame, bg=Theme.SURFACE)
         body.pack(fill="both", expand=True, padx=14, pady=(0, 14))
@@ -251,8 +262,8 @@ class ModernMainWindow:
     def __init__(self, root):
         self.root = root
         self.root.title("GotIt - 截图答题工具")
-        self.root.geometry("940x720")
-        self.root.minsize(860, 660)
+        self.root.geometry("940x780")
+        self.root.minsize(860, 700)
         self.root.configure(bg=Theme.BG)
 
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="gotit")
@@ -283,8 +294,10 @@ class ModernMainWindow:
             borderwidth=0,
             thickness=7,
         )
-        style.configure("TCombobox", padding=5)
-        style.configure("TCheckbutton", background=Theme.SURFACE, foreground=Theme.TEXT)
+        style.configure("TCombobox", padding=5, font=(FONT_FAMILY, 12))
+        style.configure("TCheckbutton", background=Theme.SURFACE, foreground=Theme.TEXT, font=(FONT_FAMILY, 12))
+        style.configure("TLabel", font=(FONT_FAMILY, 12))
+        style.configure("TButton", font=(FONT_FAMILY, 12))
 
     def _build_layout(self):
         self.sidebar = tk.Frame(self.root, bg=Theme.SIDEBAR, width=210)
@@ -298,14 +311,14 @@ class ModernMainWindow:
             text="GotIt",
             bg=Theme.SIDEBAR,
             fg="white",
-            font=("Arial", 24, "bold"),
+            font=(FONT_FAMILY, 28, "bold"),
         ).pack(anchor="w")
         tk.Label(
             brand,
             text="看见问题，直接得到答案",
             bg=Theme.SIDEBAR,
             fg="#98A2B3",
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 13),
         ).pack(anchor="w", pady=(4, 0))
 
         self._nav_button("capture", "截图答题")
@@ -319,7 +332,7 @@ class ModernMainWindow:
             text="●",
             bg="#182230",
             fg=Theme.WARNING,
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         )
         self.sidebar_status_dot.pack(side="left", padx=(12, 8), pady=12)
         self.sidebar_status = tk.Label(
@@ -327,7 +340,7 @@ class ModernMainWindow:
             text="正在初始化",
             bg="#182230",
             fg="#D0D5DD",
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         )
         self.sidebar_status.pack(side="left", pady=12)
 
@@ -353,7 +366,7 @@ class ModernMainWindow:
             bd=0,
             padx=24,
             pady=13,
-            font=("Arial", 12),
+            font=(FONT_FAMILY, 13),
             cursor="hand2",
         )
         button.pack(fill="x", padx=10, pady=2)
@@ -377,14 +390,14 @@ class ModernMainWindow:
             text=title,
             bg=Theme.BG,
             fg=Theme.TEXT,
-            font=("Arial", 23, "bold"),
+            font=(FONT_FAMILY, 29, "bold"),
         ).pack(anchor="w")
         tk.Label(
             header,
             text=subtitle,
             bg=Theme.BG,
             fg=Theme.MUTED,
-            font=("Arial", 11),
+            font=(FONT_FAMILY, 13),
         ).pack(anchor="w", pady=(5, 0))
         return page
 
@@ -403,7 +416,7 @@ class ModernMainWindow:
                 text=title,
                 bg=Theme.SURFACE,
                 fg=Theme.TEXT,
-                font=("Arial", 13, "bold"),
+                font=(FONT_FAMILY, 15, "bold"),
             ).pack(anchor="w")
             if subtitle:
                 tk.Label(
@@ -411,7 +424,7 @@ class ModernMainWindow:
                     text=subtitle,
                     bg=Theme.SURFACE,
                     fg=Theme.MUTED,
-                    font=("Arial", 10),
+                    font=(FONT_FAMILY, 12),
                 ).pack(anchor="w", pady=(3, 0))
         body = tk.Frame(card, bg=Theme.SURFACE)
         body.pack(fill="both", expand=True, padx=20, pady=(4, 18))
@@ -435,7 +448,7 @@ class ModernMainWindow:
             padx=18,
             pady=10,
             width=width,
-            font=("Arial", 11, "bold" if primary else "normal"),
+            font=(FONT_FAMILY, 13, "bold" if primary else "normal"),
             cursor="hand2",
         )
         return button
@@ -474,7 +487,7 @@ class ModernMainWindow:
             text="准备就绪",
             bg=Theme.SURFACE,
             fg=Theme.MUTED,
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         )
         self.capture_stage.pack(side="right")
 
@@ -500,7 +513,7 @@ class ModernMainWindow:
             anchor="w",
             justify="left",
             wraplength=270,
-            font=("Arial", 11),
+            font=(FONT_FAMILY, 13),
         )
         self.region_status.pack(fill="x", pady=(0, 12))
         region_buttons = tk.Frame(region, bg=Theme.SURFACE)
@@ -516,7 +529,7 @@ class ModernMainWindow:
             bg=Theme.SURFACE,
             fg=Theme.PRIMARY,
             anchor="w",
-            font=("Arial", 13, "bold"),
+            font=(FONT_FAMILY, 15, "bold"),
         )
         self.hotkey_display.pack(fill="x")
         tk.Label(
@@ -526,7 +539,7 @@ class ModernMainWindow:
             fg=Theme.MUTED,
             justify="left",
             anchor="w",
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         ).pack(fill="x", pady=(9, 0))
 
         result_card, result = self._card(body, "最近结果", "处理完成后可快速复制或查看识别详情")
@@ -541,7 +554,7 @@ class ModernMainWindow:
             wraplength=610,
             padx=16,
             pady=16,
-            font=("Arial", 14),
+            font=(FONT_FAMILY, 16),
         )
         self.answer_text.pack(fill="both", expand=True)
         result_buttons = tk.Frame(result, bg=Theme.SURFACE)
@@ -573,7 +586,7 @@ class ModernMainWindow:
             insertbackground=Theme.TEXT,
             padx=12,
             pady=10,
-            font=("Arial", 12),
+            font=(FONT_FAMILY, 14),
         )
         self.chat_input.pack(fill="x")
         chat_actions = tk.Frame(input_body, bg=Theme.SURFACE)
@@ -592,7 +605,7 @@ class ModernMainWindow:
             text="上下文 0 条",
             bg=Theme.SURFACE,
             fg=Theme.MUTED,
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         )
         self.chat_status.pack(side="right")
 
@@ -607,7 +620,7 @@ class ModernMainWindow:
             fg=Theme.TEXT,
             padx=12,
             pady=10,
-            font=("Arial", 12),
+            font=(FONT_FAMILY, 14),
             state="disabled",
         )
         self.chat_output.pack(fill="both", expand=True)
@@ -627,7 +640,7 @@ class ModernMainWindow:
             fg=Theme.MUTED,
             width=13,
             anchor="w",
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         ).pack(side="left")
         entry = tk.Entry(
             row,
@@ -637,7 +650,7 @@ class ModernMainWindow:
             relief="solid",
             bd=1,
             highlightthickness=0,
-            font=("Arial", 11),
+            font=(FONT_FAMILY, 13),
         )
         entry.pack(side="left", fill="x", expand=True, ipady=7)
         return entry
@@ -675,7 +688,7 @@ class ModernMainWindow:
             fg=Theme.MUTED,
             width=13,
             anchor="w",
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         ).pack(side="left")
         tk.Entry(parameter_row, textvariable=self.temperature_var, width=8, relief="solid", bd=1).pack(
             side="left", ipady=7
@@ -685,7 +698,7 @@ class ModernMainWindow:
             text="最大输出",
             bg=Theme.SURFACE,
             fg=Theme.MUTED,
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         ).pack(side="left", padx=(22, 8))
         tk.Entry(parameter_row, textvariable=self.max_tokens_var, width=10, relief="solid", bd=1).pack(
             side="left", ipady=7
@@ -714,7 +727,7 @@ class ModernMainWindow:
             text="截图延迟（毫秒）",
             bg=Theme.SURFACE,
             fg=Theme.MUTED,
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         ).pack(side="left")
         tk.Entry(delay_row, textvariable=self.delay_var, width=10, relief="solid", bd=1).pack(
             side="left", padx=(12, 0), ipady=7
@@ -731,7 +744,7 @@ class ModernMainWindow:
             fg=Theme.MUTED,
             width=16,
             anchor="w",
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         ).pack(side="left")
         tk.Entry(row, textvariable=self.confidence_var, width=10, relief="solid", bd=1).pack(
             side="left", ipady=7
@@ -741,7 +754,7 @@ class ModernMainWindow:
             text="范围 0 到 1，越高越严格",
             bg=Theme.SURFACE,
             fg=Theme.MUTED,
-            font=("Arial", 9),
+            font=(FONT_FAMILY, 12),
         ).pack(side="left", padx=(10, 0))
 
         hotkey_row = tk.Frame(advanced, bg=Theme.SURFACE)
@@ -753,7 +766,7 @@ class ModernMainWindow:
             fg=Theme.MUTED,
             width=16,
             anchor="w",
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         ).pack(side="left")
         ttk.Combobox(
             hotkey_row,
@@ -777,7 +790,7 @@ class ModernMainWindow:
             text="",
             bg=Theme.BG,
             fg=Theme.SUCCESS,
-            font=("Arial", 10),
+            font=(FONT_FAMILY, 12),
         )
         self.settings_message.pack(side="left")
         self._action_button(footer, "测试通知", self.test_notification).pack(side="right")

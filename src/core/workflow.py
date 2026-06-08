@@ -45,6 +45,14 @@ class CaptureWorkflow:
             return CaptureResult(False, error=error or "截图失败")
 
         notify("ocr")
+        # 在当前线程初始化 OCR（工作线程），避免 DLL 跨线程加载问题
+        if not self.ocr_manager.init_ocr():
+            return CaptureResult(
+                False,
+                screenshot_path=filepath,
+                region_text=region_text,
+                error="OCR初始化失败",
+            )
         ocr_text = self.ocr_manager.recognize_text(filepath)
         if not ocr_text or ocr_text.startswith("["):
             return CaptureResult(

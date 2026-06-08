@@ -1,5 +1,7 @@
 Pillow>=12.0.0
 pynput>=1.7.0
 rapidocr>=3.8.1
-onnxruntime>=1.26.0
+# onnxruntime 1.26.0 在某些 Windows 系统上有 DLL 加载问题
+# 使用 1.24.1 版本以确保兼容性
+onnxruntime==1.24.1
 Windows-Toasts>=1.1.0; platform_system == "Windows"
