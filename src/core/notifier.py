@@ -12,7 +12,7 @@ from pathlib import Path
 class SystemNotifier:
     """Show native notifications without blocking the UI thread."""
 
-    def __init__(self, app_name: str = "GotIt", icon_path: str | None = None):
+    def __init__(self, app_name: str = "哎！大师我悟了", icon_path: str | None = None):
         self.app_name = app_name
         self.icon_path = icon_path
         self.system = platform.system()
