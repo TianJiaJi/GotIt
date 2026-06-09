@@ -157,7 +157,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,  # 显示控制台用于调试
+    console=False,  # 不显示控制台
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -294,7 +294,7 @@ coll = COLLECT(
             "-m",
             "PyInstaller",
             "--onefile",
-            "--console",  # 显示控制台用于调试
+            "--windowed",  # 不显示控制台
             "--name=GotIt",
             "--icon=src/assets/gotit.ico",
             "--add-data=config/config.example.json;config",
