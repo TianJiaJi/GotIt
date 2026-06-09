@@ -12,6 +12,8 @@ GotIt（我懂了）是一款桌面截图 OCR 与 AI 答题工具。它可以框
 - 截图时自动隐藏主窗口，避免把软件本身截进去
 - 显示截图、OCR、AI 等处理阶段，阻止重复任务
 - 保存最近答案，支持复制和查看 OCR 详情
+- **智能题目识别**：自动识别题目类型（单选/多选/判断/解答）
+- **结构化答案**：按题目类型格式化输出答案
 
 ### 文字对话
 - 输入或读取剪贴板文本，进行连续问答
@@ -26,6 +28,7 @@ GotIt（我懂了）是一款桌面截图 OCR 与 AI 答题工具。它可以框
 ### 系统集成
 - 跨平台原生系统通知（Windows、macOS、Linux）
 - 全局快捷键支持
+- **系统托盘**：最小化到托盘，右键菜单快速操作
 - 配置修改后立即生效，无需重启软件
 
 ## 界面预览
@@ -119,11 +122,12 @@ src/
 │   ├── screenshot.py      # 屏幕截图
 │   ├── ocr.py              # OCR 识别（含本地模型支持）
 │   ├── model_manager.py   # OCR 模型下载和管理
-│   ├── ai_answer.py       # AI 答案生成
+│   ├── ai_answer.py       # AI 答案生成与题目识别
 │   ├── llm_client.py      # LLM 客户端
 │   ├── clipboard_chat.py  # 剪贴板对话
 │   ├── region.py          # 截图区域管理
-│   └── notifier.py        # 系统通知
+│   ├── notifier.py        # 系统通知
+│   └── tray_icon.py       # 系统托盘图标
 ├── ui/
 │   └── app_ui.py           # 桌面工作台 UI
 ├── utils/
@@ -138,6 +142,7 @@ src/
 - **OCR 引擎**：RapidOCR + ONNX Runtime
 - **AI 接口**：OpenAI 兼容 Chat Completions API
 - **快捷键**：pynput
+- **系统托盘**：pystray
 - **系统通知**：Windows-Toasts（Windows）、系统原生通知（macOS/Linux）
 
 ## 许可证
