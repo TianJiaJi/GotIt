@@ -153,6 +153,15 @@ class RegionSelector(tk.Toplevel):
 
 
 class ResultDialog(tk.Toplevel):
+    # 题目类型显示名称映射
+    TYPE_NAMES = {
+        "single_choice": "单选题",
+        "multiple_choice": "多选题",
+        "true_false": "判断题",
+        "essay": "解答题",
+        "unknown": "未知类型"
+    }
+
     def __init__(self, parent, result):
         super().__init__(parent)
         self.result = result
@@ -178,6 +187,29 @@ class ResultDialog(tk.Toplevel):
 
         answer = self.result.answer
         if answer:
+            # 显示题目类型
+            type_name = self.TYPE_NAMES.get(self.result.question_type, "未知类型")
+            type_label = tk.Label(
+                container,
+                text=f"题目类型: {type_name}",
+                bg=Theme.BG,
+                fg=Theme.PRIMARY,
+                font=(FONT_FAMILY, 14),
+                anchor="w"
+            )
+            type_label.pack(fill="x", pady=(8, 0))
+
+            # 解答题提示
+            if self.result.is_essay_question:
+                tk.Label(
+                    container,
+                    text="✓ 答案已自动复制到剪贴板",
+                    bg=Theme.BG,
+                    fg=Theme.SUCCESS,
+                    font=(FONT_FAMILY, 13),
+                    anchor="w"
+                ).pack(fill="x", pady=(4, 0))
+
             card = self._card(container, "AI 答案")
             tk.Label(
                 card,
@@ -544,6 +576,18 @@ class ModernMainWindow:
 
         result_card, result = self._card(body, "最近结果", "处理完成后可快速复制或查看识别详情")
         result_card.pack(fill="both", expand=True)
+
+        # 题目类型提示标签
+        self.question_type_label = tk.Label(
+            result,
+            text="",
+            bg=Theme.SURFACE,
+            fg=Theme.PRIMARY,
+            font=(FONT_FAMILY, 12),
+            anchor="w"
+        )
+        self.question_type_label.pack(fill="x", padx=14, pady=(8, 0))
+
         self.answer_text = tk.Label(
             result,
             text="还没有结果",
@@ -1034,6 +1078,27 @@ class ModernMainWindow:
             self.copy_result_button.configure(state="normal")
             self.capture_stage.configure(text="处理完成", fg=Theme.SUCCESS)
             display = self.config_manager.get_display_config()
+
+            # 显示题目类型
+            type_names = {
+                "single_choice": "单选题",
+                "multiple_choice": "多选题",
+                "true_false": "判断题",
+                "essay": "解答题",
+                "unknown": "未知类型"
+            }
+            type_name = type_names.get(result.question_type, "未知类型")
+            if include_ai and result.question_type != "unknown":
+                self.question_type_label.configure(text=f"题目类型: {type_name}")
+            else:
+                self.question_type_label.configure(text="")
+
+            # 解答题自动复制答案到剪贴板
+            if include_ai and result.is_essay_question and result.answer:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(result.answer)
+                self.capture_stage.configure(text="解答题答案已复制到剪贴板", fg=Theme.SUCCESS)
+
             if display["notifications_enabled"] and display_text:
                 self.notifier.show_answer_notification(display_text, "success")
             if display["show_result_popup"]:
@@ -1043,6 +1108,7 @@ class ModernMainWindow:
             self.answer_text.configure(text=error, fg=Theme.ERROR, bg="#FEF3F2")
             self.copy_result_button.configure(state="disabled")
             self.capture_stage.configure(text=error, fg=Theme.ERROR)
+            self.question_type_label.configure(text="")
             if self.config_manager.get_display_config()["notifications_enabled"]:
                 self.notifier.show_answer_notification(error, "error")
 

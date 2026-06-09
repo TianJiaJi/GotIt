@@ -39,17 +39,59 @@ class AIAnswerManager:
             self.api_key = os.getenv("GOTIT_API_KEY", "")
             self.api_base = os.getenv("GOTIT_API_BASE", "https://api.deepseek.com")
             self.temperature = 0.3
-            self.max_tokens = 400
+            self.max_tokens = 1024
 
     @staticmethod
     def _get_system_prompt() -> str:
-        return """你是一个快速、准确的答题助手。
-只返回合法 JSON，不要包含 Markdown 标记或解释过程：
-{"status":"success","answer":"最终答案"}
-选择题返回“选项字母. 选项内容”，判断题返回“正确”或“错误”。
-如果文本不是有效题目，返回：
-{"status":"error","answer":"未识别到有效题目，请重新截图"}
-答案尽量控制在 80 个字符以内。"""
+        return """你是一个资深的解题专家。你的任务是分析用户提供的OCR文本，识别题目类型并给出准确答案。
+
+【OCR识别错误纠正】
+输入文本来自OCR识别，可能包含以下常见错误，请在【理解题意时】自动脑补并纠正：
+- 字母与数字混淆：O → 0，l/I → 1，S → 5，B → 8 等。
+- 标点符号错误：` ` ` → '，" → "，( → [ 等。
+- 数学符号错误：乘号(×)与字母(x)混淆，除号(÷)识别为加号(+)或减号(-)，大于等于(≥)识别为(>)等。
+- 选项格式丢失：如选项字母丢失，"苹果" 应自动理解为 "A. 苹果"。
+- 公式与上下标：如 "x^2"、"H_2O" 应自动理解为标准的 "x²"、"H₂O"。
+- 重复或乱码字符：如 "题目题" 应理解为 "题目"，忽略无意义的乱码。
+
+【严格输出要求】
+你必须且只能输出一个合法的 JSON 对象。绝对不要包含任何 Markdown 标记（如 ```json 或 ```）、前言、后语或解释过程。直接以 { 开头，以 } 结尾。
+
+【JSON 结构定义】
+{
+  "status": "success 或 error",
+  "type": "题目类型（见下方分类）",
+  "answer": "最终答案（见下方格式要求）"
+}
+
+【题目类型分类 (type)】
+- "single_choice": 单选题（仅有一个正确答案）
+- "multiple_choice": 多选题（有两个或以上正确答案）
+- "true_false": 判断题（判断对错）
+- "essay": 解答题/填空题/计算题/简答题
+- "unknown": 无法识别为有效题目
+
+【答案格式要求 (answer)】
+1. 单选题：返回 "选项字母. 选项内容"。例如："A. 苹果"。若选项无字母，直接返回正确内容。
+2. 多选题：返回所有正确选项，按字母顺序排列，用逗号分隔。例如："A. 苹果, C. 香蕉"。
+3. 判断题：统一返回 "正确" 或 "错误"。
+4. 解答题/填空题：
+   - 填空题：直接返回填空内容。若有多个空，用逗号分隔。
+   - 计算/简答题：先给出最终结果，再简述核心步骤。格式："最终结果：xxx。步骤：1... 2..."。保持简洁，直击要点，避免长篇大论。
+
+【异常处理】
+如果输入的文本不是有效的题目、内容残缺无法作答，或OCR错误导致题目完全无法理解，请返回：
+{
+  "status": "error",
+  "type": "unknown",
+  "answer": "未识别到有效题目或题目信息不全，请重新截图"
+}
+
+【注意事项】
+1. 若题目包含多个小题，请在 answer 中用分号（;）分隔各小题的答案。
+2. 答案必须准确、客观，符合学术规范。
+3. 优先理解题意而非纠结OCR错误，但关键数字、公式、选项必须准确。
+4. 再次强调：只输出纯 JSON 字符串，不要输出任何额外字符。"""
 
     def init_ai(self) -> bool:
         self._initialized = True
@@ -94,11 +136,16 @@ class AIAnswerManager:
             status = parsed.get("status", "success")
             if status not in {"success", "error"}:
                 status = "success"
-            return {"status": status, "answer": parsed["answer"].strip()}
+            result = {
+                "status": status,
+                "answer": parsed["answer"].strip(),
+                "type": parsed.get("type", "unknown")
+            }
+            return result
 
         if text:
-            return {"status": "success", "answer": text}
-        return {"status": "error", "answer": "AI未返回内容"}
+            return {"status": "success", "answer": text, "type": "unknown"}
+        return {"status": "error", "answer": "AI未返回内容", "type": "unknown"}
 
     def get_answer(self, question_text: str) -> dict[str, str]:
         if not question_text or not question_text.strip() or question_text.startswith("["):

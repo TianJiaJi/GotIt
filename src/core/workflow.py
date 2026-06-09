@@ -22,6 +22,18 @@ class CaptureResult:
             return ""
         return self.ai_result.get("answer", "")
 
+    @property
+    def question_type(self) -> str:
+        """题目类型: single_choice, multiple_choice, true_false, essay, unknown"""
+        if not self.ai_result:
+            return "unknown"
+        return self.ai_result.get("type", "unknown")
+
+    @property
+    def is_essay_question(self) -> bool:
+        """是否是解答题"""
+        return self.question_type == "essay"
+
 
 class CaptureWorkflow:
     """Run the blocking capture pipeline independently from Tkinter."""
