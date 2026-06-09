@@ -1,8 +1,14 @@
 """截图答题工具主程序。"""
 import sys
 import tkinter as tk
+from pathlib import Path
 
 from ui.app_ui import ModernMainWindow
+
+
+def get_icon_path() -> Path:
+    """获取应用图标路径。"""
+    return Path(__file__).parent / "assets" / "gotit.ico"
 
 
 def preinit_models():
@@ -41,6 +47,14 @@ def main():
             pass
 
     root = tk.Tk()
+
+    # 设置应用图标
+    icon_path = get_icon_path()
+    if icon_path.exists():
+        try:
+            root.iconbitmap(str(icon_path))
+        except tk.TclError:
+            pass
 
     # Windows 上禁用 DPI 缩放，让 tkinter 自己处理
     if sys.platform == "win32":

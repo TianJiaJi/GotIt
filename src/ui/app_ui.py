@@ -810,6 +810,9 @@ class ModernMainWindow:
             from core.screenshot import ScreenshotManager
             from core.workflow import CaptureWorkflow
 
+            # 获取图标路径（通知使用 JPG 格式）
+            icon_path = Path(__file__).parent.parent / "assets" / "app_icon.jpg"
+
             self.config_manager = ConfigManager()
             capture_config = self.config_manager.get_capture_config()
             self.region_manager = RegionManager(capture_config.get("region"))
@@ -817,7 +820,7 @@ class ModernMainWindow:
             self.ocr_manager = OCRManager(self.config_manager)
             self.ai_answer_manager = AIAnswerManager(self.config_manager)
             self.clipboard_chat_manager = ClipboardChatManager(self.config_manager)
-            self.notifier = SystemNotifier()
+            self.notifier = SystemNotifier(icon_path=str(icon_path))
             self.workflow = CaptureWorkflow(
                 self.screenshot_manager,
                 self.ocr_manager,

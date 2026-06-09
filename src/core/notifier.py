@@ -6,13 +6,15 @@ import platform
 import shutil
 import subprocess
 import threading
+from pathlib import Path
 
 
 class SystemNotifier:
     """Show native notifications without blocking the UI thread."""
 
-    def __init__(self, app_name: str = "截图答题工具"):
+    def __init__(self, app_name: str = "GotIt", icon_path: str | None = None):
         self.app_name = app_name
+        self.icon_path = icon_path
         self.system = platform.system()
         self._windows_types = None
         if self.system == "Windows":
@@ -46,10 +48,18 @@ class SystemNotifier:
         try:
             if self.system == "Windows":
                 WindowsToaster, Toast, ToastAudio, AudioSource = self._windows_types
+                from windows_toasts import ToastDisplayImage
+
                 toaster = WindowsToaster(self.app_name)
                 toast = Toast()
                 toast.text_fields = [title, message]
                 toast.audio = ToastAudio(AudioSource.Default)
+                # 设置应用图标
+                if self.icon_path and Path(self.icon_path).exists():
+                    try:
+                        toast.AddImage(ToastDisplayImage.fromPath(self.icon_path))
+                    except Exception:
+                        pass
                 toaster.show_toast(toast)
             elif self.system == "Darwin":
                 script = (
