@@ -6,3 +6,4 @@ rapidocr>=3.8.1
 onnxruntime==1.24.1
 Windows-Toasts>=1.1.0; platform_system == "Windows"
 pystray>=0.19.5
+pyinstaller>=6.0.0

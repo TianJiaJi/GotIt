@@ -28,3 +28,8 @@ data/
 .DS_Store
 Thumbs.db
 models/ocr/*
+
+# 打包构建
+build/
+dist/
+*.spec

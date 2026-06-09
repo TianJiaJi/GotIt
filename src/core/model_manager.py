@@ -15,9 +15,25 @@ class ModelManager:
         if project_root:
             self.root = Path(project_root)
         else:
-            self.root = Path(__file__).resolve().parents[2]
+            # 获取项目根目录
+            if getattr(sys, 'frozen', False):
+                # 打包后的环境
+                if hasattr(sys, '_MEIPASS'):
+                    # PyInstaller 解压目录
+                    self.root = Path(sys._MEIPASS)
+                else:
+                    # 其他打包方式
+                    self.root = Path(__file__).resolve().parents[2]
+            else:
+                # 开发环境
+                self.root = Path(__file__).resolve().parents[2]
 
-        self.models_dir = self.root / "models" / "ocr"
+        # 打包后模型在 rapidocr/models/ 目录，开发环境在 models/ocr/
+        if getattr(sys, 'frozen', False):
+            self.models_dir = self.root / "rapidocr" / "models"
+        else:
+            self.models_dir = self.root / "models" / "ocr"
+
         self.models_dir.mkdir(parents=True, exist_ok=True)
 
         # 需要的模型文件
@@ -30,8 +46,16 @@ class ModelManager:
     def is_models_available(self) -> bool:
         """检查本地模型是否都存在。"""
         for model_name in self.required_models:
-            if not (self.models_dir / model_name).exists():
-                return False
+            model_path = self.models_dir / model_name
+            if not model_path.exists():
+                # 打包后检查 _internal 目录
+                if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+                    # 检查解压目录中的模型
+                    internal_path = Path(sys._MEIPASS) / "rapidocr" / "models" / model_name
+                    if not internal_path.exists():
+                        return False
+                else:
+                    return False
         return True
 
     def get_rapidocr_models_dir(self) -> Path:

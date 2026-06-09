@@ -83,8 +83,21 @@ class SystemTrayIcon:
             return False
 
         try:
+            # 获取图标路径（处理打包后的情况）
+            icon_path = self.icon_path
+            if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+                # 打包后的环境，图标在 _MEIPASS 目录
+                meipass_icon = Path(sys._MEIPASS) / "src" / "assets" / "gotit.ico"
+                if meipass_icon.exists():
+                    icon_path = meipass_icon
+                else:
+                    # 尝试直接使用原始路径
+                    pass
+
+            print(f"[托盘] 加载图标: {icon_path}")
+
             # 加载图标
-            icon_image = Image.open(str(self.icon_path))
+            icon_image = Image.open(str(icon_path))
 
             # 创建托盘图标
             self.icon = pystray.Icon(
@@ -101,6 +114,8 @@ class SystemTrayIcon:
             return True
         except Exception as e:
             print(f"[警告] 系统托盘启动失败: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def run(self) -> None:
