@@ -5,3 +5,4 @@ rapidocr>=3.8.1
 # 使用 1.24.1 版本以确保兼容性
 onnxruntime==1.24.1
 Windows-Toasts>=1.1.0; platform_system == "Windows"
+pystray>=0.19.5

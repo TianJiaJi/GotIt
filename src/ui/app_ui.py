@@ -291,7 +291,7 @@ class ResultDialog(tk.Toplevel):
 class ModernMainWindow:
     """Main application controller and view."""
 
-    def __init__(self, root):
+    def __init__(self, root, enable_tray=True):
         self.root = root
         self.root.title("GotIt - 截图答题工具")
         self.root.geometry("940x780")
@@ -308,6 +308,8 @@ class ModernMainWindow:
         self.nav_buttons = {}
         self.pages = {}
         self._restoring_after_capture = False
+        self.tray_enabled = enable_tray
+        self.tray_icon = None
 
         self._setup_style()
         self._build_layout()
@@ -1288,3 +1290,33 @@ class ModernMainWindow:
         if self.hotkey_manager:
             self.hotkey_manager.stop_listener()
         self.executor.shutdown(wait=False, cancel_futures=True)
+        if self.tray_icon:
+            self.tray_icon.stop()
+
+    def set_tray_icon(self, tray_icon):
+        """设置系统托盘图标实例。"""
+        self.tray_icon = tray_icon
+
+    def hide_to_tray(self):
+        """隐藏窗口到系统托盘。"""
+        if self.tray_enabled and self.tray_icon:
+            self.root.withdraw()
+            if self.tray_icon.is_running:
+                self.tray_icon.show_notification("GotIt", "程序已最小化到系统托盘")
+
+    def show_from_tray(self):
+        """从系统托盘恢复窗口。"""
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+
+    def on_window_close(self):
+        """窗口关闭按钮事件处理。"""
+        if self.tray_enabled and self.tray_icon and self.tray_icon.is_running:
+            # 最小化到托盘而不是关闭
+            self.hide_to_tray()
+        else:
+            # 真正关闭
+            if hasattr(self, 'cleanup'):
+                self.cleanup()
+            self.root.destroy()

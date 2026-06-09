@@ -63,17 +63,74 @@ def main():
         except tk.TclError:
             pass
 
-    # 使用现代化主窗口
-    app = ModernMainWindow(root)
+    # 检查是否启用系统托盘
+    tray_enabled = True
+    tray_icon = None
 
-    # 窗口关闭时清理资源
-    def on_closing():
+    try:
+        from core.tray_icon import SystemTrayIcon
+
+        # 尝试创建系统托盘图标
+        tray_icon = SystemTrayIcon(
+            icon_path=icon_path,
+            show_window_callback=lambda: root.after(0, _show_window),
+            quit_callback=lambda: root.after(0, _quit_app),
+            hide_to_tray_callback=lambda: root.after(0, _hide_to_tray),
+        )
+
+        if tray_icon.start():
+            print("[启动] 系统托盘已启用")
+        else:
+            tray_icon = None
+            print("[启动] 系统托盘不可用，将使用标准窗口模式")
+    except ImportError:
+        tray_icon = None
+        print("[启动] pystray 未安装，系统托盘功能不可用")
+
+    def _show_window():
+        """从托盘显示窗口。"""
+        if hasattr(app, 'show_from_tray'):
+            app.show_from_tray()
+
+    def _hide_to_tray():
+        """隐藏到托盘。"""
+        if hasattr(app, 'hide_to_tray'):
+            app.hide_to_tray()
+
+    def _quit_app():
+        """退出应用程序。"""
         if hasattr(app, 'cleanup'):
             app.cleanup()
+        if tray_icon:
+            tray_icon.stop()
         root.destroy()
 
+    # 使用现代化主窗口（传入托盘启用状态）
+    app = ModernMainWindow(root, enable_tray=tray_icon is not None)
+
+    # 设置托盘图标引用到应用
+    if tray_icon:
+        app.set_tray_icon(tray_icon)
+
+    # 窗口关闭事件处理
+    def on_closing():
+        if hasattr(app, 'on_window_close'):
+            app.on_window_close()
+
     root.protocol("WM_DELETE_WINDOW", on_closing)
+
+    # 在单独的线程中运行托盘图标事件循环
+    if tray_icon:
+        import threading
+
+        tray_thread = threading.Thread(target=tray_icon.run, daemon=True)
+        tray_thread.start()
+
     root.mainloop()
+
+    # 清理托盘资源
+    if tray_icon:
+        tray_icon.stop()
 
 
 if __name__ == "__main__":
